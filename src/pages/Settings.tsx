@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,23 +8,40 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User, Mail, MapPin, Building, Bell, Shield, Loader2, Save } from 'lucide-react';
+import { ImageUploader } from '@/components/ImageUploader';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { User, Mail, MapPin, Building, Bell, Shield, Loader2, Save, Eye, EyeOff, Phone, Briefcase } from 'lucide-react';
 import { toast } from 'sonner';
+import { db } from '@/lib/database';
 
 const countries = [
   'Cuba', 'México', 'Argentina', 'España', 'Colombia', 'Chile', 'Perú', 'Venezuela', 'Brasil', 'Estados Unidos'
 ];
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const [formData, setFormData] = useState({
-    name: user?.name || '',
-    email: user?.email || '',
-    country: user?.country || '',
-    affiliation: user?.affiliation || '',
+    name: '',
+    email: '',
+    country: '',
+    affiliation: '',
+    avatar: '',
+    phone: '',
+    specialization: '',
   });
+
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+
   const [notifications, setNotifications] = useState({
     email: true,
     abstracts: true,
@@ -32,11 +49,80 @@ export default function Settings() {
     events: false,
   });
 
+  // Load user data on mount
+  useEffect(() => {
+    if (user) {
+      const dbUser = db.users.getById(user.id);
+      if (dbUser) {
+        setFormData({
+          name: dbUser.name || '',
+          email: dbUser.email || '',
+          country: dbUser.country || '',
+          affiliation: dbUser.affiliation || '',
+          avatar: dbUser.avatar || '',
+          phone: dbUser.phone || '',
+          specialization: dbUser.specialization || '',
+        });
+      }
+    }
+  }, [user]);
+
   const handleSave = async () => {
+    if (!user) return;
+    
     setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    toast.success('Configuración guardada correctamente');
-    setIsLoading(false);
+    try {
+      db.users.update(user.id, {
+        name: formData.name,
+        email: formData.email,
+        country: formData.country,
+        affiliation: formData.affiliation,
+        avatar: formData.avatar,
+        phone: formData.phone,
+        specialization: formData.specialization,
+      });
+
+      // Reload page to update context
+      window.location.reload();
+      toast.success('Perfil actualizado correctamente');
+    } catch (error) {
+      toast.error('Error al guardar los cambios');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleChangePassword = () => {
+    if (!user) return;
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error('Las contraseñas no coinciden');
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      toast.error('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+
+    const dbUser = db.users.getById(user.id);
+    if (dbUser?.passwordHash !== passwordData.currentPassword) {
+      toast.error('La contraseña actual es incorrecta');
+      return;
+    }
+
+    try {
+      db.users.updatePassword(user.id, passwordData.newPassword);
+      toast.success('Contraseña actualizada correctamente');
+      setIsPasswordDialogOpen(false);
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (error) {
+      toast.error('Error al cambiar la contraseña');
+    }
+  };
+
+  const handleAvatarChange = (url: string) => {
+    setFormData(prev => ({ ...prev, avatar: url }));
   };
 
   return (
@@ -62,22 +148,18 @@ export default function Settings() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Avatar */}
-            <div className="flex items-center gap-4">
-              <Avatar className="h-20 w-20">
-                <AvatarImage src={user?.avatar} />
-                <AvatarFallback className="bg-primary/10 text-primary text-2xl font-semibold">
-                  {user?.name?.charAt(0)}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <Button variant="outline" size="sm">
-                  Cambiar foto
-                </Button>
-                <p className="text-xs text-muted-foreground mt-1">
-                  JPG, PNG o GIF. Máximo 2MB.
-                </p>
-              </div>
+            {/* Avatar with ImageUploader */}
+            <div className="flex flex-col items-center gap-4">
+              <ImageUploader
+                value={formData.avatar}
+                onChange={handleAvatarChange}
+                aspectRatio="square"
+                className="w-32 h-32"
+                placeholder="Subir foto"
+              />
+              <p className="text-xs text-muted-foreground text-center">
+                Haz clic o arrastra una imagen para cambiar tu foto de perfil
+              </p>
             </div>
 
             <Separator />
@@ -112,6 +194,20 @@ export default function Settings() {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="phone">Teléfono</Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="phone"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    className="pl-10"
+                    placeholder="+1 234 567 8900"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
                 <Label>País</Label>
                 <Select
                   value={formData.country}
@@ -129,7 +225,7 @@ export default function Settings() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="affiliation">Afiliación</Label>
+                <Label htmlFor="affiliation">Afiliación / Institución</Label>
                 <div className="relative">
                   <Building className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -137,6 +233,20 @@ export default function Settings() {
                     value={formData.affiliation}
                     onChange={(e) => setFormData({ ...formData, affiliation: e.target.value })}
                     className="pl-10"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="specialization">Especialización</Label>
+                <div className="relative">
+                  <Briefcase className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="specialization"
+                    value={formData.specialization}
+                    onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
+                    className="pl-10"
+                    placeholder="Ej: Biotecnología, IA, etc."
                   />
                 </div>
               </div>
@@ -217,17 +327,21 @@ export default function Settings() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium">Cambiar Contraseña</p>
-                <p className="text-sm text-muted-foreground">Última actualización hace 30 días</p>
+                <p className="text-sm text-muted-foreground">Actualiza tu contraseña de acceso</p>
               </div>
-              <Button variant="outline">Cambiar</Button>
+              <Button variant="outline" onClick={() => setIsPasswordDialogOpen(true)}>
+                Cambiar
+              </Button>
             </div>
             <Separator />
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-medium">Sesiones Activas</p>
-                <p className="text-sm text-muted-foreground">Gestiona los dispositivos conectados</p>
+                <p className="font-medium">Cerrar Sesión</p>
+                <p className="text-sm text-muted-foreground">Salir de tu cuenta en este dispositivo</p>
               </div>
-              <Button variant="outline">Ver Sesiones</Button>
+              <Button variant="outline" className="text-destructive hover:text-destructive" onClick={logout}>
+                Cerrar Sesión
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -245,6 +359,78 @@ export default function Settings() {
             )}
           </Button>
         </div>
+
+        {/* Password Change Dialog */}
+        <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="font-display">Cambiar Contraseña</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Contraseña Actual</Label>
+                <div className="relative">
+                  <Input
+                    type={showCurrentPassword ? 'text' : 'password'}
+                    value={passwordData.currentPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-3 top-3"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  >
+                    {showCurrentPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Nueva Contraseña</Label>
+                <div className="relative">
+                  <Input
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={passwordData.newPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-3 top-3"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                  >
+                    {showNewPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Confirmar Nueva Contraseña</Label>
+                <div className="relative">
+                  <Input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={passwordData.confirmPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-3 top-3"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsPasswordDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button variant="hero" onClick={handleChangePassword}>
+                Cambiar Contraseña
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
