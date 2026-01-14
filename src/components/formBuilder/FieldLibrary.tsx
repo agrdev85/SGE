@@ -13,6 +13,7 @@ import {
   Upload,
   Image,
   Minus,
+  Heading,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FieldType } from '@/lib/database';
@@ -26,6 +27,7 @@ interface FieldConfig {
 }
 
 const fieldTypes: FieldConfig[] = [
+  { type: 'heading', label: 'Encabezado', icon: Heading, description: 'Título o sección' },
   { type: 'text', label: 'Texto corto', icon: Type, description: 'Campo de texto simple' },
   { type: 'textarea', label: 'Texto largo', icon: AlignLeft, description: 'Área de texto múltiple líneas' },
   { type: 'email', label: 'Email', icon: Mail, description: 'Campo de correo electrónico' },
@@ -37,7 +39,7 @@ const fieldTypes: FieldConfig[] = [
   { type: 'radio', label: 'Radio', icon: Circle, description: 'Opciones únicas' },
   { type: 'file', label: 'Archivo', icon: Upload, description: 'Subida de archivo' },
   { type: 'image', label: 'Imagen', icon: Image, description: 'Subida de imagen' },
-  { type: 'separator', label: 'Separador', icon: Minus, description: 'Título/separador visual' },
+  { type: 'separator', label: 'Separador', icon: Minus, description: 'Separador visual' },
 ];
 
 interface DraggableFieldProps {
@@ -64,17 +66,17 @@ function DraggableField({ field }: DraggableFieldProps) {
       {...attributes}
       className={cn(
         "p-3 rounded-lg border bg-card cursor-grab active:cursor-grabbing transition-all",
-        "hover:border-primary/50 hover:shadow-sm",
+        "hover:border-primary/50 hover:shadow-sm hover:bg-primary/5",
         isDragging && "opacity-50 ring-2 ring-primary"
       )}
     >
       <div className="flex items-center gap-3">
-        <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center">
+        <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
           <Icon className="h-4 w-4 text-primary" />
         </div>
-        <div>
+        <div className="min-w-0">
           <p className="text-sm font-medium">{field.label}</p>
-          <p className="text-xs text-muted-foreground">{field.description}</p>
+          <p className="text-xs text-muted-foreground truncate">{field.description}</p>
         </div>
       </div>
     </div>
