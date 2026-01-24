@@ -10,6 +10,8 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Abstracts from "./pages/Abstracts";
 import NewAbstract from "./pages/NewAbstract";
+import EditAbstract from "./pages/EditAbstract";
+import EventLanding from "./pages/EventLanding";
 import Review from "./pages/Review";
 import Committee from "./pages/Committee";
 import Events from "./pages/Events";
@@ -33,6 +35,8 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/abstracts" element={<Abstracts />} />
             <Route path="/abstracts/new" element={<NewAbstract />} />
+            <Route path="/abstracts/edit/:abstractId" element={<EditAbstract />} />
+            <Route path="/event/:eventId" element={<EventLanding />} />
             <Route path="/review" element={<Review />} />
             <Route path="/committee" element={<Committee />} />
             <Route path="/events" element={<Events />} />
