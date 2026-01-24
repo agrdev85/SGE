@@ -176,7 +176,7 @@ export default function Dashboard() {
               ) : (
                 <div className="space-y-4">
                   {events.map(event => (
-                    <div key={event.id} className="group">
+                    <Link key={event.id} to={`/event/${event.id}`} className="group block">
                       <div className="relative rounded-lg overflow-hidden mb-2">
                         <img
                           src={event.bannerImageUrl}
@@ -197,8 +197,8 @@ export default function Dashboard() {
                           </p>
                         </div>
                       </div>
-                      <p className="font-medium text-sm line-clamp-2">{event.name}</p>
-                    </div>
+                      <p className="font-medium text-sm line-clamp-2 group-hover:text-primary transition-colors">{event.name}</p>
+                    </Link>
                   ))}
                 </div>
               )}

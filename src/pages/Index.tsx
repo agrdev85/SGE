@@ -1,6 +1,9 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { db, Event } from '@/lib/database';
 import { 
   Beaker, 
   ArrowRight, 
@@ -10,7 +13,8 @@ import {
   Calendar,
   Award,
   Globe,
-  Zap
+  Zap,
+  MapPin
 } from 'lucide-react';
 
 const features = [
@@ -44,6 +48,14 @@ const stats = [
 ];
 
 export default function Index() {
+  const [events, setEvents] = useState<Event[]>([]);
+
+  useEffect(() => {
+    db.init();
+    const activeEvents = db.events.getAll().filter(e => e.isActive);
+    setEvents(activeEvents);
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -155,8 +167,89 @@ export default function Index() {
         </div>
       </section>
 
+      {/* Active Events Section */}
+      <section id="events" className="py-20">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">
+              Eventos Activos
+            </h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Descubre los próximos eventos científicos y únete a la comunidad de investigadores
+            </p>
+          </div>
+
+          {events.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Calendar className="h-16 w-16 mx-auto mb-4 opacity-50" />
+              <p>No hay eventos activos en este momento</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {events.map((event) => (
+                <Link key={event.id} to={`/event/${event.id}`} className="group">
+                  <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                    <div className="relative h-48">
+                      <img
+                        src={event.bannerImageUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=400&fit=crop'}
+                        alt={event.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div
+                        className="absolute inset-0"
+                        style={{
+                          background: `linear-gradient(to top, ${event.primaryColor}dd, transparent)`,
+                        }}
+                      />
+                      <div className="absolute top-3 right-3">
+                        <Badge className="bg-white/90 text-foreground">
+                          {event.isActive ? 'Inscripciones Abiertas' : 'Próximamente'}
+                        </Badge>
+                      </div>
+                      <div className="absolute bottom-3 left-3 right-3 text-white">
+                        <h3 className="text-lg font-bold line-clamp-2">{event.name}</h3>
+                        <p className="text-sm text-white/80 flex items-center gap-1 mt-1">
+                          <Calendar className="h-4 w-4" />
+                          {new Date(event.startDate).toLocaleDateString('es-ES', {
+                            day: 'numeric',
+                            month: 'short',
+                          })} - {new Date(event.endDate).toLocaleDateString('es-ES', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                    <CardContent className="pt-4">
+                      <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
+                        {event.description}
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground flex items-center gap-1">
+                          <Users className="h-4 w-4" />
+                          {db.abstracts.getByEvent(event.id).length} trabajos
+                        </span>
+                        <Button
+                          size="sm"
+                          style={{ backgroundColor: event.primaryColor }}
+                          className="text-white"
+                        >
+                          Ver Evento
+                          <ArrowRight className="h-4 w-4 ml-1" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* How it Works */}
-      <section className="py-20">
+      <section className="py-20 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">
