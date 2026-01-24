@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Bell, Check, CheckCheck, FileText, Calendar, AlertCircle } from 'lucide-react';
+import { Bell, Check, CheckCheck, FileText, Calendar, AlertCircle, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -18,6 +18,7 @@ const notificationIcons: Record<Notification['type'], React.ElementType> = {
   abstract_status: FileText,
   review_assigned: AlertCircle,
   event_update: Calendar,
+  email_sent: Mail,
   system: Bell,
 };
 
