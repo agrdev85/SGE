@@ -8,15 +8,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { db, Event, FormField } from '@/lib/database';
-import { Plus, Calendar, Users, FileText, Edit, Trash2, Settings2, Mail, Image, Palette, ArrowLeft, Wand2 } from 'lucide-react';
+import { Plus, Calendar, Users, FileText, Edit, Trash2, Settings2, Mail, Image, Palette, ArrowLeft, Wand2, Award, IdCard } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { ImageUploader } from '@/components/ImageUploader';
 import { FormBuilderWithPreview } from '@/components/formBuilder/FormBuilderWithPreview';
 import { EmailTemplateManager } from '@/components/EmailTemplateManager';
 import { JuryAssignment } from '@/components/JuryAssignment';
+import { CertificateManager } from '@/components/CertificateManager';
+import { CredentialsManager } from '@/components/CredentialsManager';
 import { toast } from 'sonner';
 
-type ViewMode = 'list' | 'form-builder' | 'email-templates' | 'jury-assignment';
+type ViewMode = 'list' | 'form-builder' | 'email-templates' | 'jury-assignment' | 'certificates' | 'credentials';
 
 export default function Events() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -125,6 +127,16 @@ export default function Events() {
     setViewMode('jury-assignment');
   };
 
+  const openCertificates = (event: Event) => {
+    setSelectedEvent(event);
+    setViewMode('certificates');
+  };
+
+  const openCredentials = (event: Event) => {
+    setSelectedEvent(event);
+    setViewMode('credentials');
+  };
+
   const handleSaveFormFields = (fields: FormField[]) => {
     if (selectedEvent) {
       if (formBuilderType === 'event') {
@@ -208,6 +220,48 @@ export default function Events() {
             </Button>
           </div>
           <JuryAssignment event={selectedEvent} />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Certificates View
+  if (viewMode === 'certificates' && selectedEvent) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-display font-bold">Gestión de Certificados</h1>
+              <p className="text-muted-foreground">{selectedEvent.name}</p>
+            </div>
+            <Button variant="outline" onClick={goBackToList}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Volver a Eventos
+            </Button>
+          </div>
+          <CertificateManager event={selectedEvent} />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Credentials View
+  if (viewMode === 'credentials' && selectedEvent) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-display font-bold">Gestión de Credenciales</h1>
+              <p className="text-muted-foreground">{selectedEvent.name}</p>
+            </div>
+            <Button variant="outline" onClick={goBackToList}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Volver a Eventos
+            </Button>
+          </div>
+          <CredentialsManager event={selectedEvent} />
         </div>
       </DashboardLayout>
     );
@@ -297,6 +351,24 @@ export default function Events() {
                       title="Asignar Jurados"
                     >
                       <Wand2 className="h-4 w-4 text-white" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 bg-white/20 hover:bg-white/30 backdrop-blur-sm"
+                      onClick={() => openCertificates(event)}
+                      title="Certificados"
+                    >
+                      <Award className="h-4 w-4 text-white" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 bg-white/20 hover:bg-white/30 backdrop-blur-sm"
+                      onClick={() => openCredentials(event)}
+                      title="Credenciales"
+                    >
+                      <IdCard className="h-4 w-4 text-white" />
                     </Button>
                     <Button
                       variant="ghost"
