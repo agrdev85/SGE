@@ -7,13 +7,13 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { db, User } from '@/lib/database';
-import { Search, Users as UsersIcon, UserCheck, ClipboardCheck, Shield, Plus, Edit, Trash2, X } from 'lucide-react';
+import { Search, Users as UsersIcon, UserCheck, ClipboardCheck, Shield, Plus, Edit, Trash2, FileDown } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ImageUploader } from '@/components/ImageUploader';
 import { toast } from 'sonner';
-import { generateParticipationCertificate } from '@/lib/certificateGenerator';
+import { generateParticipationCertificate, generateAllCertificatesAsPDF } from '@/lib/certificateGenerator';
 
 const roleConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   USER: { label: 'Participante', color: 'bg-primary/10 text-primary', icon: UsersIcon },
@@ -95,6 +95,22 @@ export default function Users() {
     }
   };
 
+  const handleExportAllCertificates = () => {
+    const events = db.events.getActive();
+    if (events.length === 0) {
+      toast.error('No hay eventos activos');
+      return;
+    }
+    const event = events[0];
+    const activeUsers = users.filter(u => u.isActive);
+    if (activeUsers.length === 0) {
+      toast.error('No hay usuarios activos');
+      return;
+    }
+    generateAllCertificatesAsPDF(activeUsers, event, 'participation');
+    toast.success(`${activeUsers.length} certificados exportados en un solo PDF`);
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -103,7 +119,13 @@ export default function Users() {
             <h1 className="text-3xl font-display font-bold">Gestión de Usuarios</h1>
             <p className="text-muted-foreground mt-1">Administra los usuarios de la plataforma</p>
           </div>
-          <Button variant="hero" onClick={openCreateDialog}><Plus className="h-4 w-4" />Nuevo Usuario</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleExportAllCertificates}>
+              <FileDown className="h-4 w-4" />
+              Exportar Certificados
+            </Button>
+            <Button variant="hero" onClick={openCreateDialog}><Plus className="h-4 w-4" />Nuevo Usuario</Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
