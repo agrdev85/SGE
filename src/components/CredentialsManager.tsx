@@ -1,74 +1,26 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { db, Event, User } from '@/lib/database';
-import { IdCard, Download, Users, FileDown, Settings, Palette, GripVertical, Save, QrCode } from 'lucide-react';
+import { Download, Users, FileDown, Save, Monitor, Smartphone, QrCode } from 'lucide-react';
 import { toast } from 'sonner';
-import { ImageUploader } from './ImageUploader';
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { DesignCanvas } from './designCanvas/DesignCanvas';
+import { ElementsPanel } from './designCanvas/ElementsPanel';
+import { CanvasElement, defaultCredentialElements, CredentialDesignConfig } from './designCanvas/types';
+import { cn } from '@/lib/utils';
 
-export interface CredentialConfig {
-  orientation: 'portrait' | 'landscape';
-  width: number;
-  height: number;
-  primaryColor: string;
-  secondaryColor: string;
-  backgroundColor: string;
-  textColor: string;
-  showPhoto: boolean;
-  showQR: boolean;
-  showRole: boolean;
-  showAffiliation: boolean;
-  showCountry: boolean;
-  headerText: string;
-  footerText: string;
-  logoUrl?: string;
-  qrDataFields: string[];
+interface CredentialsManagerProps {
+  event: Event;
 }
-
-interface CredentialField {
-  id: string;
-  type: 'text' | 'logo' | 'photo' | 'qr' | 'role' | 'affiliation' | 'country' | 'event_name';
-  label: string;
-  value: string;
-  enabled: boolean;
-}
-
-const defaultFields: CredentialField[] = [
-  { id: 'event_name', type: 'event_name', label: 'Nombre del Evento', value: '', enabled: true },
-  { id: 'logo', type: 'logo', label: 'Logo del Evento', value: '', enabled: false },
-  { id: 'photo', type: 'photo', label: 'Foto del Participante', value: '', enabled: true },
-  { id: 'role', type: 'role', label: 'Rol/Categoría', value: '', enabled: true },
-  { id: 'affiliation', type: 'affiliation', label: 'Afiliación/Institución', value: '', enabled: true },
-  { id: 'country', type: 'country', label: 'País', value: '', enabled: false },
-  { id: 'qr', type: 'qr', label: 'Código QR', value: '', enabled: true },
-];
 
 const qrDataOptions = [
   { id: 'name', label: 'Nombre' },
@@ -76,11 +28,11 @@ const qrDataOptions = [
   { id: 'role', label: 'Rol' },
   { id: 'affiliation', label: 'Afiliación' },
   { id: 'country', label: 'País' },
-  { id: 'event', label: 'Nombre del Evento' },
-  { id: 'id', label: 'ID de Usuario' },
+  { id: 'event', label: 'Evento' },
+  { id: 'id', label: 'ID' },
 ];
 
-const defaultCredentialConfig: CredentialConfig = {
+const defaultConfig: CredentialDesignConfig = {
   orientation: 'portrait',
   width: 85.6,
   height: 53.98,
@@ -93,64 +45,15 @@ const defaultCredentialConfig: CredentialConfig = {
   showRole: true,
   showAffiliation: true,
   showCountry: false,
-  headerText: '',
-  footerText: '',
   qrDataFields: ['name', 'email', 'event'],
+  elements: [],
 };
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   return result
-    ? {
-        r: parseInt(result[1], 16),
-        g: parseInt(result[2], 16),
-        b: parseInt(result[3], 16),
-      }
+    ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) }
     : { r: 30, g: 64, b: 175 };
-}
-
-function SortableCredentialField({ field, onUpdate }: { 
-  field: CredentialField; 
-  onUpdate: (id: string, updates: Partial<CredentialField>) => void;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: field.id });
-  const style = { transform: CSS.Transform.toString(transform), transition };
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={`p-3 rounded-lg border transition-all ${field.enabled ? 'bg-card' : 'bg-muted/50 opacity-60'}`}
-    >
-      <div className="flex items-center gap-3">
-        <div {...attributes} {...listeners} className="cursor-grab">
-          <GripVertical className="h-4 w-4 text-muted-foreground" />
-        </div>
-        <div className="flex-1 flex items-center justify-between">
-          <Label className="text-sm font-medium">{field.label}</Label>
-          <Switch
-            checked={field.enabled}
-            onCheckedChange={(checked) => onUpdate(field.id, { enabled: checked })}
-          />
-        </div>
-        {field.enabled && field.type === 'logo' && (
-          <div className="ml-8">
-            <ImageUploader
-              value={field.value}
-              onChange={(url) => onUpdate(field.id, { value: url })}
-              aspectRatio="auto"
-              className="max-w-[150px]"
-              placeholder="Logo"
-            />
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-interface CredentialsManagerProps {
-  event: Event;
 }
 
 async function generateQRDataUrl(data: string): Promise<string> {
@@ -162,219 +65,61 @@ async function generateQRDataUrl(data: string): Promise<string> {
 }
 
 export function CredentialsManager({ event }: CredentialsManagerProps) {
-  const [activeTab, setActiveTab] = useState('config');
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [isExporting, setIsExporting] = useState(false);
   const [isSaved, setIsSaved] = useState(true);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [previewDevice, setPreviewDevice] = useState<'desktop' | 'mobile'>('desktop');
+  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
 
-  // Load saved config from localStorage
-  const savedConfigKey = `credential_config_${event.id}`;
-  const savedFieldsKey = `credential_fields_${event.id}`;
+  // Storage keys
+  const savedConfigKey = `credential_config_v2_${event.id}`;
+  const savedElementsKey = `credential_elements_v2_${event.id}`;
 
-  const [config, setConfig] = useState<CredentialConfig>(() => {
+  // Load saved config
+  const [config, setConfig] = useState<CredentialDesignConfig>(() => {
     const saved = localStorage.getItem(savedConfigKey);
     if (saved) {
-      return JSON.parse(saved);
-    }
-    return {
-      ...defaultCredentialConfig,
-      primaryColor: event.primaryColor,
-      secondaryColor: event.secondaryColor,
-    };
-  });
-
-  const [fields, setFields] = useState<CredentialField[]>(() => {
-    const saved = localStorage.getItem(savedFieldsKey);
-    if (saved) {
-      return JSON.parse(saved);
-    }
-    return defaultFields;
-  });
-
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  );
-
-  // Update config when fields change
-  useEffect(() => {
-    const photoField = fields.find(f => f.id === 'photo');
-    const qrField = fields.find(f => f.id === 'qr');
-    const roleField = fields.find(f => f.id === 'role');
-    const affiliationField = fields.find(f => f.id === 'affiliation');
-    const countryField = fields.find(f => f.id === 'country');
-    const logoField = fields.find(f => f.id === 'logo');
-
-    setConfig(prev => ({
-      ...prev,
-      showPhoto: photoField?.enabled ?? true,
-      showQR: qrField?.enabled ?? true,
-      showRole: roleField?.enabled ?? true,
-      showAffiliation: affiliationField?.enabled ?? true,
-      showCountry: countryField?.enabled ?? false,
-      logoUrl: logoField?.enabled ? logoField.value : undefined,
-    }));
-    setIsSaved(false);
-  }, [fields]);
-
-  // Draw real-time preview
-  useEffect(() => {
-    if (activeTab !== 'design') return;
-    drawPreview();
-  }, [config, activeTab]);
-
-  const drawPreview = async () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const scale = 4;
-    const width = config.width * scale;
-    const height = config.height * scale;
-    canvas.width = width;
-    canvas.height = height;
-
-    const primaryRgb = hexToRgb(config.primaryColor);
-    const secondaryRgb = hexToRgb(config.secondaryColor);
-    const textRgb = hexToRgb(config.textColor);
-
-    // Background
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, width, height);
-
-    // Header bar
-    ctx.fillStyle = config.primaryColor;
-    ctx.fillRect(0, 0, width, height * 0.22);
-
-    // Event name - FULL NAME, no truncation
-    ctx.fillStyle = '#ffffff';
-    ctx.font = `bold ${12 * scale / 4}px Arial`;
-    ctx.textAlign = 'center';
-    
-    // Word wrap for long event names
-    const maxWidth = width - 20;
-    const words = event.name.split(' ');
-    let lines: string[] = [];
-    let currentLine = words[0];
-
-    for (let i = 1; i < words.length; i++) {
-      const testLine = currentLine + ' ' + words[i];
-      const metrics = ctx.measureText(testLine);
-      if (metrics.width < maxWidth) {
-        currentLine = testLine;
-      } else {
-        lines.push(currentLine);
-        currentLine = words[i];
+      try {
+        return { ...defaultConfig, ...JSON.parse(saved) };
+      } catch {
+        return { ...defaultConfig, primaryColor: event.primaryColor, secondaryColor: event.secondaryColor };
       }
     }
-    lines.push(currentLine);
+    return { ...defaultConfig, primaryColor: event.primaryColor, secondaryColor: event.secondaryColor };
+  });
 
-    const lineHeight = 14 * scale / 4;
-    const startY = height * 0.08 + ((2 - lines.length) * lineHeight / 2);
-    lines.forEach((line, index) => {
-      ctx.fillText(line, width / 2, startY + index * lineHeight);
-    });
-
-    // Photo placeholder
-    if (config.showPhoto) {
-      const photoSize = 24 * scale / 4;
-      const photoX = width / 2 - photoSize / 2;
-      const photoY = height * 0.28;
-      
-      ctx.fillStyle = '#f0f0f0';
-      ctx.beginPath();
-      ctx.roundRect(photoX, photoY, photoSize, photoSize * 1.2, 4);
-      ctx.fill();
-      
-      ctx.strokeStyle = config.secondaryColor;
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      
-      ctx.fillStyle = '#999';
-      ctx.font = `${8 * scale / 4}px Arial`;
-      ctx.fillText('FOTO', width / 2, photoY + photoSize * 0.7);
+  // Load saved elements
+  const [elements, setElements] = useState<CanvasElement[]>(() => {
+    const saved = localStorage.getItem(savedElementsKey);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return defaultCredentialElements;
+      }
     }
+    return defaultCredentialElements;
+  });
 
-    // Name
-    let yPos = config.showPhoto ? height * 0.68 : height * 0.35;
-    ctx.fillStyle = config.textColor;
-    ctx.font = `bold ${14 * scale / 4}px Arial`;
-    ctx.fillText('Dr. Juan Pérez García', width / 2, yPos);
+  // Auto-save on changes
+  useEffect(() => {
+    const saveTimeout = setTimeout(() => {
+      localStorage.setItem(savedConfigKey, JSON.stringify(config));
+      localStorage.setItem(savedElementsKey, JSON.stringify(elements));
+    }, 500);
+    return () => clearTimeout(saveTimeout);
+  }, [config, elements, savedConfigKey, savedElementsKey]);
 
-    // Role badge
-    if (config.showRole) {
-      yPos += 10 * scale / 4;
-      const roleText = 'Participante';
-      const roleWidth = ctx.measureText(roleText).width + 16;
-      
-      ctx.fillStyle = config.secondaryColor;
-      ctx.beginPath();
-      ctx.roundRect(width / 2 - roleWidth / 2, yPos - 6, roleWidth, 12, 4);
-      ctx.fill();
-      
-      ctx.fillStyle = '#ffffff';
-      ctx.font = `${8 * scale / 4}px Arial`;
-      ctx.fillText(roleText, width / 2, yPos + 2);
-    }
-
-    // Affiliation
-    if (config.showAffiliation) {
-      yPos += 12 * scale / 4;
-      ctx.fillStyle = '#666';
-      ctx.font = `${8 * scale / 4}px Arial`;
-      ctx.fillText('Universidad de Madrid', width / 2, yPos);
-    }
-
-    // Country
-    if (config.showCountry) {
-      yPos += 8 * scale / 4;
-      ctx.font = `${7 * scale / 4}px Arial`;
-      ctx.fillText('España', width / 2, yPos);
-    }
-
-    // QR Code
-    if (config.showQR) {
-      const qrSize = 12 * scale / 4;
-      ctx.fillStyle = '#f0f0f0';
-      ctx.fillRect(width - qrSize - 8, height - qrSize - 16, qrSize, qrSize);
-      ctx.fillStyle = '#666';
-      ctx.font = `${5 * scale / 4}px Arial`;
-      ctx.textAlign = 'center';
-      ctx.fillText('QR', width - qrSize / 2 - 8, height - qrSize / 2 - 12);
-    }
-
-    // Footer bar
-    ctx.fillStyle = config.primaryColor;
-    ctx.fillRect(0, height - height * 0.08, width, height * 0.08);
-
-    // ID
-    ctx.fillStyle = '#ffffff';
-    ctx.font = `${5 * scale / 4}px Arial`;
-    ctx.textAlign = 'left';
-    ctx.fillText('ID-PREVIEW123', 4, height - 4);
-  };
-
-  const handleDragEnd = (eventDrag: DragEndEvent) => {
-    const { active, over } = eventDrag;
-    if (over && active.id !== over.id) {
-      setFields((items) => {
-        const oldIndex = items.findIndex((i) => i.id === active.id);
-        const newIndex = items.findIndex((i) => i.id === over.id);
-        return arrayMove(items, oldIndex, newIndex);
-      });
-    }
-  };
-
-  const handleFieldUpdate = (id: string, updates: Partial<CredentialField>) => {
-    setFields(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f));
-  };
+  const handleElementUpdate = useCallback((id: string, updates: Partial<CanvasElement>) => {
+    setElements(prev => prev.map(el => 
+      el.id === id ? { ...el, ...updates } : el
+    ));
+    setIsSaved(false);
+  }, []);
 
   const handleSaveConfig = () => {
     localStorage.setItem(savedConfigKey, JSON.stringify(config));
-    localStorage.setItem(savedFieldsKey, JSON.stringify(fields));
+    localStorage.setItem(savedElementsKey, JSON.stringify(elements));
     setIsSaved(true);
     toast.success('Configuración de credenciales guardada');
   };
@@ -391,6 +136,17 @@ export function CredentialsManager({ event }: CredentialsManagerProps) {
     setIsSaved(false);
   };
 
+  // Preview data
+  const previewData: Record<string, string> = {
+    evento: event.name,
+    nombre: 'Dr. Juan Pérez García',
+    rol: 'Participante',
+    afiliacion: 'Universidad de Madrid',
+    pais: 'España',
+    id: 'ID-ABC12345',
+  };
+
+  // Get eligible users
   const allUsers = db.users.getAll();
   const eventAbstracts = db.abstracts.getByEvent(event.id);
   const participantIds = [...new Set(eventAbstracts.map(a => a.userId))];
@@ -427,12 +183,9 @@ export function CredentialsManager({ event }: CredentialsManagerProps) {
   };
 
   const handleGenerateSingle = async (user: User) => {
-    // Save config first
-    localStorage.setItem(savedConfigKey, JSON.stringify(config));
-    localStorage.setItem(savedFieldsKey, JSON.stringify(fields));
-
+    handleSaveConfig();
     try {
-      const doc = await generateCredentialPDF(user, event, config);
+      const doc = await generateCredentialPDF(user, event, config, elements);
       doc.save(`Credencial_${user.name.replace(/\s+/g, '_')}.pdf`);
       toast.success(`Credencial generada para ${user.name}`);
     } catch {
@@ -440,7 +193,12 @@ export function CredentialsManager({ event }: CredentialsManagerProps) {
     }
   };
 
-  const generateCredentialPDF = async (user: User, evt: Event, cfg: CredentialConfig): Promise<jsPDF> => {
+  const generateCredentialPDF = async (
+    user: User, 
+    evt: Event, 
+    cfg: CredentialDesignConfig,
+    elems: CanvasElement[]
+  ): Promise<jsPDF> => {
     const primaryRgb = hexToRgb(cfg.primaryColor);
     const secondaryRgb = hexToRgb(cfg.secondaryColor);
     const textRgb = hexToRgb(cfg.textColor);
@@ -458,93 +216,78 @@ export function CredentialsManager({ event }: CredentialsManagerProps) {
     doc.setFillColor(255, 255, 255);
     doc.rect(0, 0, width, height, 'F');
 
-    // Header bar
-    doc.setFillColor(primaryRgb.r, primaryRgb.g, primaryRgb.b);
-    doc.rect(0, 0, width, 12, 'F');
+    // Render elements based on saved positions
+    for (const element of elems.filter(e => e.enabled)) {
+      const x = (element.x - element.width / 2) * width / 100;
+      const y = (element.y - element.height / 2) * height / 100;
+      const w = element.width * width / 100;
+      const h = element.height * height / 100;
 
-    // Event name - FULL, wrapped
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(7);
-    doc.setFont('helvetica', 'bold');
-    const splitName = doc.splitTextToSize(evt.name, width - 6);
-    doc.text(splitName, width / 2, 5, { align: 'center' });
+      if (element.type === 'shape') {
+        const color = element.style.backgroundColor === 'primary' ? primaryRgb : secondaryRgb;
+        doc.setFillColor(color.r, color.g, color.b);
+        doc.rect(x, y, w, h, 'F');
+      }
 
-    // Photo placeholder area
-    if (cfg.showPhoto) {
-      doc.setFillColor(240, 240, 240);
-      doc.roundedRect(width / 2 - 10, 15, 20, 24, 2, 2, 'F');
-      doc.setDrawColor(secondaryRgb.r, secondaryRgb.g, secondaryRgb.b);
-      doc.setLineWidth(0.5);
-      doc.roundedRect(width / 2 - 10, 15, 20, 24, 2, 2, 'S');
-      doc.setTextColor(150, 150, 150);
-      doc.setFontSize(5);
-      doc.text('FOTO', width / 2, 28, { align: 'center' });
-    }
+      if (element.type === 'text') {
+        let content = element.content;
+        content = content.replace('{{evento}}', evt.name);
+        content = content.replace('{{nombre}}', user.name);
+        content = content.replace('{{rol}}', getRoleLabel(user.role));
+        content = content.replace('{{afiliacion}}', user.affiliation || '');
+        content = content.replace('{{pais}}', user.country || '');
+        content = content.replace('{{id}}', `ID-${user.id.substring(0, 8).toUpperCase()}`);
 
-    // Name
-    let yPos = cfg.showPhoto ? 43 : 18;
-    doc.setTextColor(textRgb.r, textRgb.g, textRgb.b);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.text(user.name, width / 2, yPos, { align: 'center' });
+        const isWhite = element.style.color === 'white';
+        const isPrimary = element.style.color === 'primary';
+        const isSecondary = element.style.color === 'secondary';
+        
+        if (isWhite) doc.setTextColor(255, 255, 255);
+        else if (isPrimary) doc.setTextColor(primaryRgb.r, primaryRgb.g, primaryRgb.b);
+        else if (isSecondary) doc.setTextColor(secondaryRgb.r, secondaryRgb.g, secondaryRgb.b);
+        else doc.setTextColor(textRgb.r, textRgb.g, textRgb.b);
 
-    // Role badge
-    if (cfg.showRole) {
-      yPos += 5;
-      const roleLabels: Record<string, string> = {
-        USER: 'Participante',
-        REVIEWER: 'Revisor',
-        COMMITTEE: 'Comité',
-        ADMIN: 'Organizador',
-      };
-      doc.setFillColor(secondaryRgb.r, secondaryRgb.g, secondaryRgb.b);
-      const roleText = roleLabels[user.role] || user.role;
-      doc.setFontSize(6);
-      const roleWidth = doc.getTextWidth(roleText) + 4;
-      doc.roundedRect(width / 2 - roleWidth / 2, yPos - 3, roleWidth, 5, 1, 1, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.text(roleText, width / 2, yPos, { align: 'center' });
-    }
-
-    // Affiliation
-    if (cfg.showAffiliation && user.affiliation) {
-      yPos += 6;
-      doc.setTextColor(100, 100, 100);
-      doc.setFontSize(6);
-      doc.text(user.affiliation, width / 2, yPos, { align: 'center' });
-    }
-
-    // Country
-    if (cfg.showCountry && user.country) {
-      yPos += 4;
-      doc.setFontSize(5);
-      doc.text(user.country, width / 2, yPos, { align: 'center' });
-    }
-
-    // QR Code with real data
-    if (cfg.showQR) {
-      const qrData = generateQrData(user);
-      try {
-        const qrDataUrl = await generateQRDataUrl(qrData);
-        if (qrDataUrl) {
-          doc.addImage(qrDataUrl, 'PNG', width - 14, height - 14, 12, 12);
+        doc.setFontSize(element.style.fontSize || 10);
+        doc.setFont('helvetica', element.style.fontWeight === 'bold' ? 'bold' : 'normal');
+        
+        const textX = element.x * width / 100;
+        const textY = element.y * height / 100;
+        
+        // Handle role badge background
+        if (element.id === 'role-badge' && element.style.backgroundColor === 'secondary') {
+          const textWidth = doc.getTextWidth(content) + 4;
+          doc.setFillColor(secondaryRgb.r, secondaryRgb.g, secondaryRgb.b);
+          doc.roundedRect(textX - textWidth / 2, textY - 3, textWidth, 5, 1, 1, 'F');
+          doc.setTextColor(255, 255, 255);
         }
-      } catch {
-        // Fallback placeholder
+        
+        const splitText = doc.splitTextToSize(content, w);
+        doc.text(splitText, textX, textY, { align: 'center' });
+      }
+
+      if (element.type === 'photo') {
         doc.setFillColor(240, 240, 240);
-        doc.rect(width - 12, height - 12, 10, 10, 'F');
+        doc.roundedRect(x, y, w, h, 2, 2, 'F');
+        doc.setDrawColor(secondaryRgb.r, secondaryRgb.g, secondaryRgb.b);
+        doc.roundedRect(x, y, w, h, 2, 2, 'S');
+        doc.setTextColor(150, 150, 150);
+        doc.setFontSize(5);
+        doc.text('FOTO', x + w / 2, y + h / 2, { align: 'center' });
+      }
+
+      if (element.type === 'qr') {
+        const qrData = generateQrData(user);
+        try {
+          const qrDataUrl = await generateQRDataUrl(qrData);
+          if (qrDataUrl) {
+            doc.addImage(qrDataUrl, 'PNG', x, y, w, h);
+          }
+        } catch {
+          doc.setFillColor(240, 240, 240);
+          doc.rect(x, y, w, h, 'F');
+        }
       }
     }
-
-    // Footer bar
-    doc.setFillColor(primaryRgb.r, primaryRgb.g, primaryRgb.b);
-    doc.rect(0, height - 4, width, 4, 'F');
-
-    // Credential ID
-    const credentialId = `ID-${user.id.substring(0, 8).toUpperCase()}`;
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(4);
-    doc.text(credentialId, 3, height - 1.5);
 
     return doc;
   };
@@ -555,14 +298,12 @@ export function CredentialsManager({ event }: CredentialsManagerProps) {
       return;
     }
 
-    // Save config first
-    localStorage.setItem(savedConfigKey, JSON.stringify(config));
-    localStorage.setItem(savedFieldsKey, JSON.stringify(fields));
-
+    handleSaveConfig();
     setIsExporting(true);
+    
     try {
       const usersToExport = eligibleUsers.filter(u => selectedUsers.includes(u.id));
-      await generateAllCredentialsAsPDF(usersToExport, event, config);
+      await generateAllCredentialsAsPDF(usersToExport);
       toast.success(`${usersToExport.length} credenciales exportadas en un solo PDF`);
     } catch {
       toast.error('Error al exportar las credenciales');
@@ -571,17 +312,12 @@ export function CredentialsManager({ event }: CredentialsManagerProps) {
     }
   };
 
-  const generateAllCredentialsAsPDF = async (users: User[], evt: Event, cfg: CredentialConfig): Promise<void> => {
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4',
-    });
-
+  const generateAllCredentialsAsPDF = async (users: User[]): Promise<void> => {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const credWidth = cfg.width;
-    const credHeight = cfg.height;
+    const credWidth = config.width;
+    const credHeight = config.height;
     const margin = 10;
     const gap = 5;
 
@@ -589,13 +325,12 @@ export function CredentialsManager({ event }: CredentialsManagerProps) {
     const rows = Math.floor((pageHeight - 2 * margin + gap) / (credHeight + gap));
     const perPage = cols * rows;
 
-    const primaryRgb = hexToRgb(cfg.primaryColor);
-    const secondaryRgb = hexToRgb(cfg.secondaryColor);
-    const textRgb = hexToRgb(cfg.textColor);
+    const primaryRgb = hexToRgb(config.primaryColor);
+    const secondaryRgb = hexToRgb(config.secondaryColor);
+    const textRgb = hexToRgb(config.textColor);
 
     for (let i = 0; i < users.length; i++) {
       const user = users[i];
-      const pageIndex = Math.floor(i / perPage);
       const posOnPage = i % perPage;
       const col = posOnPage % cols;
       const row = Math.floor(posOnPage / cols);
@@ -607,156 +342,146 @@ export function CredentialsManager({ event }: CredentialsManagerProps) {
       const x = margin + col * (credWidth + gap);
       const y = margin + row * (credHeight + gap);
 
-      // Draw credential at position
-      await drawCredentialAt(doc, user, evt, cfg, x, y, primaryRgb, secondaryRgb, textRgb);
+      await drawCredentialAt(doc, user, x, y, primaryRgb, secondaryRgb, textRgb);
     }
 
-    const fileName = `Credenciales_${evt.name.replace(/\s+/g, '_')}.pdf`;
+    const fileName = `Credenciales_${event.name.replace(/\s+/g, '_')}.pdf`;
     doc.save(fileName);
   };
 
   const drawCredentialAt = async (
     doc: jsPDF, 
     user: User, 
-    evt: Event, 
-    cfg: CredentialConfig, 
-    x: number, 
-    y: number,
+    baseX: number, 
+    baseY: number,
     primaryRgb: { r: number; g: number; b: number },
     secondaryRgb: { r: number; g: number; b: number },
     textRgb: { r: number; g: number; b: number }
   ): Promise<void> => {
-    const width = cfg.width;
-    const height = cfg.height;
+    const width = config.width;
+    const height = config.height;
 
     // Border
     doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.3);
-    doc.rect(x, y, width, height, 'S');
+    doc.rect(baseX, baseY, width, height, 'S');
 
-    // Background
-    doc.setFillColor(255, 255, 255);
-    doc.rect(x, y, width, height, 'F');
+    // Render elements
+    for (const element of elements.filter(e => e.enabled)) {
+      const x = baseX + (element.x - element.width / 2) * width / 100;
+      const y = baseY + (element.y - element.height / 2) * height / 100;
+      const w = element.width * width / 100;
+      const h = element.height * height / 100;
 
-    // Header bar
-    doc.setFillColor(primaryRgb.r, primaryRgb.g, primaryRgb.b);
-    doc.rect(x, y, width, 12, 'F');
+      if (element.type === 'shape') {
+        const color = element.style.backgroundColor === 'primary' ? primaryRgb : secondaryRgb;
+        doc.setFillColor(color.r, color.g, color.b);
+        doc.rect(x, y, w, h, 'F');
+      }
 
-    // Event name - FULL with wrap
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(6);
-    doc.setFont('helvetica', 'bold');
-    const splitName = doc.splitTextToSize(evt.name, width - 4);
-    doc.text(splitName, x + width / 2, y + 4, { align: 'center' });
+      if (element.type === 'text') {
+        let content = element.content;
+        content = content.replace('{{evento}}', event.name);
+        content = content.replace('{{nombre}}', user.name);
+        content = content.replace('{{rol}}', getRoleLabel(user.role));
+        content = content.replace('{{afiliacion}}', user.affiliation || '');
+        content = content.replace('{{pais}}', user.country || '');
+        content = content.replace('{{id}}', `ID-${user.id.substring(0, 8).toUpperCase()}`);
 
-    // Photo area
-    if (cfg.showPhoto) {
-      doc.setFillColor(240, 240, 240);
-      doc.roundedRect(x + width / 2 - 10, y + 15, 20, 24, 2, 2, 'F');
-      doc.setDrawColor(secondaryRgb.r, secondaryRgb.g, secondaryRgb.b);
-      doc.roundedRect(x + width / 2 - 10, y + 15, 20, 24, 2, 2, 'S');
-      doc.setTextColor(150, 150, 150);
-      doc.setFontSize(5);
-      doc.text('FOTO', x + width / 2, y + 28, { align: 'center' });
-    }
+        const isWhite = element.style.color === 'white';
+        if (isWhite) doc.setTextColor(255, 255, 255);
+        else doc.setTextColor(textRgb.r, textRgb.g, textRgb.b);
 
-    // Name
-    let yPos = y + (cfg.showPhoto ? 43 : 18);
-    doc.setTextColor(textRgb.r, textRgb.g, textRgb.b);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.text(user.name, x + width / 2, yPos, { align: 'center' });
+        doc.setFontSize(element.style.fontSize || 10);
+        doc.setFont('helvetica', element.style.fontWeight === 'bold' ? 'bold' : 'normal');
+        
+        const textX = baseX + element.x * width / 100;
+        const textY = baseY + element.y * height / 100;
 
-    // Role
-    if (cfg.showRole) {
-      yPos += 5;
-      const roleLabels: Record<string, string> = {
-        USER: 'Participante',
-        REVIEWER: 'Revisor',
-        COMMITTEE: 'Comité',
-        ADMIN: 'Organizador',
-      };
-      doc.setFillColor(secondaryRgb.r, secondaryRgb.g, secondaryRgb.b);
-      const roleText = roleLabels[user.role] || user.role;
-      doc.setFontSize(6);
-      const roleWidth = doc.getTextWidth(roleText) + 4;
-      doc.roundedRect(x + width / 2 - roleWidth / 2, yPos - 3, roleWidth, 5, 1, 1, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.text(roleText, x + width / 2, yPos, { align: 'center' });
-    }
-
-    // Affiliation
-    if (cfg.showAffiliation && user.affiliation) {
-      yPos += 6;
-      doc.setTextColor(100, 100, 100);
-      doc.setFontSize(6);
-      doc.text(user.affiliation, x + width / 2, yPos, { align: 'center' });
-    }
-
-    // QR Code
-    if (cfg.showQR) {
-      const qrData = generateQrData(user);
-      try {
-        const qrDataUrl = await generateQRDataUrl(qrData);
-        if (qrDataUrl) {
-          doc.addImage(qrDataUrl, 'PNG', x + width - 13, y + height - 13, 10, 10);
+        if (element.id === 'role-badge' && element.style.backgroundColor === 'secondary') {
+          const roleText = getRoleLabel(user.role);
+          const textWidth = doc.getTextWidth(roleText) + 4;
+          doc.setFillColor(secondaryRgb.r, secondaryRgb.g, secondaryRgb.b);
+          doc.roundedRect(textX - textWidth / 2, textY - 3, textWidth, 5, 1, 1, 'F');
+          doc.setTextColor(255, 255, 255);
+          content = roleText;
         }
-      } catch {
+        
+        const splitText = doc.splitTextToSize(content, w);
+        doc.text(splitText, textX, textY, { align: 'center' });
+      }
+
+      if (element.type === 'photo') {
         doc.setFillColor(240, 240, 240);
-        doc.rect(x + width - 12, y + height - 12, 10, 10, 'F');
+        doc.roundedRect(x, y, w, h, 2, 2, 'F');
+        doc.setDrawColor(secondaryRgb.r, secondaryRgb.g, secondaryRgb.b);
+        doc.roundedRect(x, y, w, h, 2, 2, 'S');
+      }
+
+      if (element.type === 'qr') {
+        const qrData = generateQrData(user);
+        try {
+          const qrDataUrl = await generateQRDataUrl(qrData);
+          if (qrDataUrl) {
+            doc.addImage(qrDataUrl, 'PNG', x, y, w, h);
+          }
+        } catch {
+          doc.setFillColor(240, 240, 240);
+          doc.rect(x, y, w, h, 'F');
+        }
       }
     }
-
-    // Footer bar
-    doc.setFillColor(primaryRgb.r, primaryRgb.g, primaryRgb.b);
-    doc.rect(x, y + height - 4, width, 4, 'F');
-
-    // ID
-    const credentialId = `ID-${user.id.substring(0, 8).toUpperCase()}`;
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(4);
-    doc.text(credentialId, x + 3, y + height - 1.5);
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h2 className="text-2xl font-bold">Gestión de Credenciales</h2>
-          <p className="text-muted-foreground">Configura y genera credenciales personalizadas</p>
+          <p className="text-muted-foreground">Diseña credenciales con elementos arrastrables</p>
         </div>
-        <Button onClick={handleSaveConfig} variant={isSaved ? 'outline' : 'hero'}>
-          <Save className="h-4 w-4 mr-2" />
-          {isSaved ? 'Guardado' : 'Guardar Cambios'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1 bg-muted rounded-lg p-1">
+            <button
+              onClick={() => setPreviewDevice('desktop')}
+              className={cn(
+                "p-2 rounded-md transition-colors",
+                previewDevice === 'desktop' ? "bg-background shadow-sm" : "hover:bg-background/50"
+              )}
+            >
+              <Monitor className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setPreviewDevice('mobile')}
+              className={cn(
+                "p-2 rounded-md transition-colors",
+                previewDevice === 'mobile' ? "bg-background shadow-sm" : "hover:bg-background/50"
+              )}
+            >
+              <Smartphone className="h-4 w-4" />
+            </button>
+          </div>
+          <Button onClick={handleSaveConfig} variant={isSaved ? 'outline' : 'hero'}>
+            <Save className="h-4 w-4 mr-2" />
+            {isSaved ? 'Guardado' : 'Guardar'}
+          </Button>
+        </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="config" className="gap-2">
-            <Settings className="h-4 w-4" />
-            Configuración
-          </TabsTrigger>
-          <TabsTrigger value="design" className="gap-2">
-            <Palette className="h-4 w-4" />
-            Diseño
-          </TabsTrigger>
-          <TabsTrigger value="generate" className="gap-2">
-            <Users className="h-4 w-4" />
-            Generar
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="config" className="space-y-4">
+      {/* Main Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Configuration Panel */}
+        <div className="lg:col-span-5 space-y-4">
+          {/* Size Settings */}
           <Card>
-            <CardHeader>
-              <CardTitle>Formato de Credencial</CardTitle>
-              <CardDescription>Configura el tamaño y orientación</CardDescription>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Formato de Credencial</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Orientación</Label>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">Orientación</Label>
                   <Select
                     value={config.orientation}
                     onValueChange={(value: 'portrait' | 'landscape') => {
@@ -764,7 +489,7 @@ export function CredentialsManager({ event }: CredentialsManagerProps) {
                       setIsSaved(false);
                     }}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -773,8 +498,8 @@ export function CredentialsManager({ event }: CredentialsManagerProps) {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label>Ancho (mm)</Label>
+                <div className="space-y-1">
+                  <Label className="text-xs">Ancho (mm)</Label>
                   <Input
                     type="number"
                     value={config.width}
@@ -782,10 +507,11 @@ export function CredentialsManager({ event }: CredentialsManagerProps) {
                       setConfig({ ...config, width: parseFloat(e.target.value) || 85.6 });
                       setIsSaved(false);
                     }}
+                    className="h-8 text-xs"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Alto (mm)</Label>
+                <div className="space-y-1">
+                  <Label className="text-xs">Alto (mm)</Label>
                   <Input
                     type="number"
                     value={config.height}
@@ -793,240 +519,194 @@ export function CredentialsManager({ event }: CredentialsManagerProps) {
                       setConfig({ ...config, height: parseFloat(e.target.value) || 53.98 });
                       setIsSaved(false);
                     }}
+                    className="h-8 text-xs"
                   />
+                </div>
+              </div>
+
+              {/* Colors */}
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t">
+                <div className="space-y-1">
+                  <Label className="text-xs">Color Primario</Label>
+                  <div className="flex gap-1">
+                    <Input
+                      type="color"
+                      value={config.primaryColor}
+                      onChange={(e) => { setConfig({ ...config, primaryColor: e.target.value }); setIsSaved(false); }}
+                      className="w-10 h-8 p-1 cursor-pointer"
+                    />
+                    <Input
+                      value={config.primaryColor}
+                      onChange={(e) => { setConfig({ ...config, primaryColor: e.target.value }); setIsSaved(false); }}
+                      className="flex-1 h-8 text-xs"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Color Secundario</Label>
+                  <div className="flex gap-1">
+                    <Input
+                      type="color"
+                      value={config.secondaryColor}
+                      onChange={(e) => { setConfig({ ...config, secondaryColor: e.target.value }); setIsSaved(false); }}
+                      className="w-10 h-8 p-1 cursor-pointer"
+                    />
+                    <Input
+                      value={config.secondaryColor}
+                      onChange={(e) => { setConfig({ ...config, secondaryColor: e.target.value }); setIsSaved(false); }}
+                      className="flex-1 h-8 text-xs"
+                    />
+                  </div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
+          {/* QR Data Selection */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <GripVertical className="h-5 w-5" />
-                Campos de la Credencial
-              </CardTitle>
-              <CardDescription>Arrastra para reordenar, activa/desactiva los campos</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <SortableContext items={fields.map(f => f.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-2">
-                    {fields.map(field => (
-                      <SortableCredentialField
-                        key={field.id}
-                        field={field}
-                        onUpdate={handleFieldUpdate}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <QrCode className="h-5 w-5" />
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <QrCode className="h-4 w-4" />
                 Datos del Código QR
               </CardTitle>
-              <CardDescription>Selecciona qué información incluir en el QR</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-4 gap-2">
                 {qrDataOptions.map(option => (
-                  <div
+                  <button
                     key={option.id}
                     onClick={() => toggleQrField(option.id)}
-                    className={`p-3 rounded-lg border-2 cursor-pointer transition-all text-center ${
+                    className={cn(
+                      "p-2 rounded-lg border-2 transition-all text-center",
                       (config.qrDataFields || []).includes(option.id)
                         ? 'border-primary bg-primary/5'
                         : 'border-border hover:border-primary/50'
-                    }`}
+                    )}
                   >
-                    <Checkbox
-                      checked={(config.qrDataFields || []).includes(option.id)}
-                      className="mx-auto mb-1"
-                    />
-                    <span className="text-sm font-medium">{option.label}</span>
-                  </div>
+                    <span className="text-xs font-medium">{option.label}</span>
+                  </button>
                 ))}
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="design" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Colores</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Color Primario</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        type="color"
-                        value={config.primaryColor}
-                        onChange={(e) => {
-                          setConfig({ ...config, primaryColor: e.target.value });
-                          setIsSaved(false);
-                        }}
-                        className="w-12 h-10 p-1 cursor-pointer"
-                      />
-                      <Input
-                        value={config.primaryColor}
-                        onChange={(e) => {
-                          setConfig({ ...config, primaryColor: e.target.value });
-                          setIsSaved(false);
-                        }}
-                        className="flex-1"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Color Secundario</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        type="color"
-                        value={config.secondaryColor}
-                        onChange={(e) => {
-                          setConfig({ ...config, secondaryColor: e.target.value });
-                          setIsSaved(false);
-                        }}
-                        className="w-12 h-10 p-1 cursor-pointer"
-                      />
-                      <Input
-                        value={config.secondaryColor}
-                        onChange={(e) => {
-                          setConfig({ ...config, secondaryColor: e.target.value });
-                          setIsSaved(false);
-                        }}
-                        className="flex-1"
-                      />
-                    </div>
-                  </div>
-                </div>
+          {/* Elements Panel */}
+          <ElementsPanel
+            elements={elements}
+            selectedId={selectedElementId}
+            onSelectElement={setSelectedElementId}
+            onUpdateElement={handleElementUpdate}
+          />
+        </div>
 
-                <div className="space-y-2">
-                  <Label>Color de Texto</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      type="color"
-                      value={config.textColor}
-                      onChange={(e) => {
-                        setConfig({ ...config, textColor: e.target.value });
-                        setIsSaved(false);
-                      }}
-                      className="w-12 h-10 p-1 cursor-pointer"
-                    />
-                    <Input
-                      value={config.textColor}
-                      onChange={(e) => {
-                        setConfig({ ...config, textColor: e.target.value });
-                        setIsSaved(false);
-                      }}
-                      className="flex-1"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Vista Previa en Tiempo Real</CardTitle>
-                <CardDescription>Los cambios se reflejan automáticamente</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="border rounded-lg overflow-hidden bg-muted/50 flex items-center justify-center p-6">
-                  <canvas
-                    ref={canvasRef}
-                    className="shadow-lg rounded"
-                    style={{ 
-                      maxWidth: '100%',
-                      maxHeight: '300px',
-                    }}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="generate" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Seleccionar Participantes</CardTitle>
-                  <CardDescription>{eligibleUsers.length} usuarios disponibles</CardDescription>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={handleSelectAll}>
-                    {selectedUsers.length === eligibleUsers.length ? 'Deseleccionar' : 'Seleccionar'} todos
-                  </Button>
-                  <Badge variant="secondary">{selectedUsers.length} seleccionados</Badge>
-                </div>
-              </div>
+        {/* Preview Panel */}
+        <div className="lg:col-span-7">
+          <Card className="sticky top-4">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                Vista Previa en Tiempo Real
+                <Badge variant="secondary" className="text-xs">
+                  {previewDevice === 'desktop' ? 'Escritorio' : 'Móvil'}
+                </Badge>
+              </CardTitle>
+              <CardDescription>
+                Arrastra elementos para reposicionarlos libremente
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              {eligibleUsers.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No hay usuarios registrados para este evento</p>
-                </div>
-              ) : (
-                <ScrollArea className="h-[300px]">
-                  <div className="space-y-2">
-                    {eligibleUsers.map((user) => (
-                      <div
-                        key={user.id}
-                        className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Checkbox
-                            checked={selectedUsers.includes(user.id)}
-                            onCheckedChange={() => handleToggleUser(user.id)}
-                          />
-                          <div>
-                            <p className="font-medium">{user.name}</p>
-                            <p className="text-sm text-muted-foreground">{user.email}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline">{user.role}</Badge>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleGenerateSingle(user)}
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              )}
-
-              <div className="flex gap-2 mt-4">
-                <Button
-                  variant="hero"
-                  className="flex-1"
-                  onClick={handleExportAll}
-                  disabled={selectedUsers.length === 0 || isExporting}
-                >
-                  <FileDown className="h-4 w-4 mr-2" />
-                  {isExporting ? 'Exportando...' : `Exportar ${selectedUsers.length} Credenciales (PDF)`}
-                </Button>
+              <div className="bg-muted/30 rounded-lg p-6 flex items-center justify-center min-h-[400px]">
+                <DesignCanvas
+                  config={config}
+                  elements={elements}
+                  onElementUpdate={handleElementUpdate}
+                  previewData={previewData}
+                  device={previewDevice}
+                  interactive={true}
+                />
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        </div>
+      </div>
+
+      {/* Generate Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Generar Credenciales</CardTitle>
+              <CardDescription>{eligibleUsers.length} usuarios disponibles</CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={handleSelectAll}>
+                {selectedUsers.length === eligibleUsers.length ? 'Deseleccionar' : 'Seleccionar'} todos
+              </Button>
+              <Badge variant="secondary">{selectedUsers.length} seleccionados</Badge>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {eligibleUsers.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No hay usuarios registrados para este evento</p>
+            </div>
+          ) : (
+            <ScrollArea className="h-[250px]">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                {eligibleUsers.map((user) => (
+                  <div
+                    key={user.id}
+                    className={cn(
+                      "flex items-center gap-2 p-2 rounded-lg border transition-colors cursor-pointer",
+                      selectedUsers.includes(user.id) ? "bg-primary/5 border-primary" : "hover:bg-muted/50"
+                    )}
+                    onClick={() => handleToggleUser(user.id)}
+                  >
+                    <Checkbox checked={selectedUsers.includes(user.id)} />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{user.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                    </div>
+                    <Badge variant="outline" className="shrink-0 text-xs">{user.role}</Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0"
+                      onClick={(e) => { e.stopPropagation(); handleGenerateSingle(user); }}
+                    >
+                      <Download className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+
+          <div className="flex gap-4 mt-4">
+            <Button
+              className="flex-1"
+              size="lg"
+              variant="hero"
+              onClick={handleExportAll}
+              disabled={selectedUsers.length === 0 || isExporting}
+            >
+              <FileDown className="h-5 w-5 mr-2" />
+              {isExporting ? 'Exportando...' : `Exportar ${selectedUsers.length} Credenciales (PDF único)`}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
+}
+
+function getRoleLabel(role: string): string {
+  const labels: Record<string, string> = {
+    USER: 'Participante',
+    REVIEWER: 'Revisor',
+    COMMITTEE: 'Comité',
+    ADMIN: 'Organizador',
+  };
+  return labels[role] || role;
 }
