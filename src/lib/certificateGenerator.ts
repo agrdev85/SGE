@@ -1,6 +1,8 @@
-// PDF Certificate Generator using jsPDF
+// PDF Certificate Generator using jsPDF with canvas-based element positioning
 import { jsPDF } from 'jspdf';
 import type { Event, User, Abstract } from './database';
+import type { CanvasElement, DesignConfig } from '@/components/designCanvas/types';
+import { defaultCertificateElements } from '@/components/designCanvas/types';
 
 export interface CertificateConfig {
   // Layout
@@ -44,6 +46,7 @@ export interface CertificateData {
   primaryColor: string;
   secondaryColor: string;
   config?: Partial<CertificateConfig>;
+  elements?: CanvasElement[];
 }
 
 export const defaultCertificateConfig: CertificateConfig = {
@@ -76,6 +79,176 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
     : { r: 30, g: 64, b: 175 };
 }
 
+function getColorRgb(
+  colorKey: string | undefined, 
+  primaryRgb: { r: number; g: number; b: number },
+  secondaryRgb: { r: number; g: number; b: number },
+  textRgb: { r: number; g: number; b: number }
+): { r: number; g: number; b: number } {
+  switch (colorKey) {
+    case 'primary': return primaryRgb;
+    case 'secondary': return secondaryRgb;
+    case 'white': return { r: 255, g: 255, b: 255 };
+    case 'muted': return { r: 100, g: 116, b: 139 };
+    case 'text': return textRgb;
+    default: 
+      if (colorKey?.startsWith('#')) return hexToRgb(colorKey);
+      return textRgb;
+  }
+}
+
+async function loadImageAsBase64(url: string): Promise<string | null> {
+  if (!url) return null;
+  
+  // If already base64 or data URL, return as-is
+  if (url.startsWith('data:')) return url;
+  
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    console.error('Failed to load image:', url);
+    return null;
+  }
+}
+
+// Generate certificate using canvas elements
+export async function generateCertificateFromElements(
+  data: CertificateData,
+  elements: CanvasElement[],
+  config: Partial<CertificateConfig>
+): Promise<jsPDF> {
+  const finalConfig = { ...defaultCertificateConfig, ...config };
+  const primaryRgb = hexToRgb(data.primaryColor || finalConfig.primaryColor);
+  const secondaryRgb = hexToRgb(data.secondaryColor || finalConfig.secondaryColor);
+  const textRgb = hexToRgb(finalConfig.textColor);
+  
+  const doc = new jsPDF({
+    orientation: finalConfig.orientation,
+    unit: 'mm',
+    format: finalConfig.format,
+  });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // Background
+  doc.setFillColor(255, 255, 255);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+  // Prepare template data
+  const templateData: Record<string, string> = {
+    '{{nombre}}': data.participantName,
+    '{{evento}}': data.eventName,
+    '{{fecha}}': data.eventDate,
+    '{{firmante}}': finalConfig.signerName || '',
+    '{{cargo}}': finalConfig.signerTitle || '',
+    '{{titulo}}': data.abstractTitle || '',
+    '{{categoria}}': data.categoryType || '',
+  };
+
+  // Render each enabled element
+  for (const element of elements.filter(e => e.enabled)) {
+    const x = (element.x - element.width / 2) * pageWidth / 100;
+    const y = (element.y - element.height / 2) * pageHeight / 100;
+    const w = element.width * pageWidth / 100;
+    const h = element.height * pageHeight / 100;
+    const centerX = element.x * pageWidth / 100;
+    const centerY = element.y * pageHeight / 100;
+
+    switch (element.type) {
+      case 'shape': {
+        const color = getColorRgb(element.style.backgroundColor, primaryRgb, secondaryRgb, textRgb);
+        doc.setFillColor(color.r, color.g, color.b);
+        doc.rect(x, y, w, h, 'F');
+        break;
+      }
+
+      case 'line': {
+        const color = getColorRgb(element.style.backgroundColor, primaryRgb, secondaryRgb, textRgb);
+        doc.setDrawColor(color.r, color.g, color.b);
+        doc.setLineWidth(0.5);
+        doc.line(x, centerY, x + w, centerY);
+        break;
+      }
+
+      case 'text': {
+        let content = element.content;
+        // Replace template variables
+        Object.entries(templateData).forEach(([key, value]) => {
+          content = content.replace(new RegExp(key, 'g'), value);
+        });
+
+        const color = getColorRgb(element.style.color, primaryRgb, secondaryRgb, textRgb);
+        doc.setTextColor(color.r, color.g, color.b);
+        doc.setFontSize(element.style.fontSize || 12);
+        
+        const fontWeight = element.style.fontWeight === 'bold' ? 'bold' : 'normal';
+        const fontStyle = element.style.fontStyle === 'italic' ? 'italic' : 'normal';
+        let fontType: string = fontWeight;
+        if (fontWeight === 'bold' && fontStyle === 'italic') fontType = 'bolditalic';
+        else if (fontStyle === 'italic') fontType = 'italic';
+        
+        doc.setFont('helvetica', fontType);
+        
+        const splitText = doc.splitTextToSize(content, w);
+        doc.text(splitText, centerX, centerY, { align: 'center' });
+        break;
+      }
+
+      case 'logo': {
+        if (element.content) {
+          try {
+            const imgData = await loadImageAsBase64(element.content);
+            if (imgData) {
+              doc.addImage(imgData, 'PNG', x, y, w, h);
+            }
+          } catch (e) {
+            console.error('Error loading logo:', e);
+          }
+        }
+        break;
+      }
+
+      case 'qr': {
+        // QR placeholder - would need QR library
+        doc.setFillColor(240, 240, 240);
+        doc.rect(x, y, w, h, 'F');
+        doc.setFontSize(6);
+        doc.setTextColor(150, 150, 150);
+        doc.text('QR', centerX, centerY, { align: 'center' });
+        break;
+      }
+
+      case 'photo': {
+        doc.setFillColor(240, 240, 240);
+        doc.rect(x, y, w, h, 'F');
+        doc.setDrawColor(200, 200, 200);
+        doc.rect(x, y, w, h, 'S');
+        doc.setFontSize(6);
+        doc.setTextColor(150, 150, 150);
+        doc.text('FOTO', centerX, centerY, { align: 'center' });
+        break;
+      }
+    }
+  }
+
+  // Add certificate ID
+  const certificateId = `CERT-${Date.now().toString(36).toUpperCase()}`;
+  doc.setFontSize(8);
+  doc.setTextColor(150, 150, 150);
+  doc.text(`ID: ${certificateId}`, pageWidth - 10, pageHeight - 5, { align: 'right' });
+
+  return doc;
+}
+
+// Legacy function for backwards compatibility
 export function generateCertificate(data: CertificateData): jsPDF {
   const config = { ...defaultCertificateConfig, ...data.config };
   const primaryRgb = hexToRgb(data.primaryColor || config.primaryColor);
@@ -159,7 +332,6 @@ export function generateCertificate(data: CertificateData): jsPDF {
       doc.setFont('helvetica', 'bolditalic');
       doc.setTextColor(secondaryRgb.r, secondaryRgb.g, secondaryRgb.b);
       
-      // Word wrap for long titles
       const splitTitle = doc.splitTextToSize(data.abstractTitle, pageWidth - 60);
       doc.text(splitTitle, pageWidth / 2, yPos, { align: 'center' });
       yPos += (splitTitle.length - 1) * 7;
@@ -249,6 +421,26 @@ export function generateAndSaveCertificate(data: CertificateData): void {
   doc.save(fileName);
 }
 
+// New async version that uses canvas elements
+export async function generateAndSaveCertificateFromElements(
+  data: CertificateData,
+  elements: CanvasElement[],
+  config: Partial<CertificateConfig>
+): Promise<void> {
+  const doc = await generateCertificateFromElements(data, elements, config);
+  const fileName = `Certificado_${data.participantName.replace(/\s+/g, '_')}_${data.certificateType}.pdf`;
+  doc.save(fileName);
+}
+
+function formatDate(dateStr: string): string {
+  try {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+}
+
 export function generateParticipationCertificate(user: User, event: Event, config?: Partial<CertificateConfig>): void {
   generateAndSaveCertificate({
     participantName: user.name,
@@ -290,7 +482,130 @@ export function generateReviewerCertificate(user: User, event: Event, config?: P
   });
 }
 
-// Bulk export function
+// Generate all certificates using canvas elements
+export async function generateAllCertificatesFromElements(
+  users: User[],
+  event: Event,
+  certificateType: 'participation' | 'presentation' | 'reviewer',
+  elements: CanvasElement[],
+  config: Partial<CertificateConfig>,
+  abstracts?: Abstract[]
+): Promise<void> {
+  const finalConfig = { ...defaultCertificateConfig, ...config };
+  
+  const mergedDoc = new jsPDF({
+    orientation: finalConfig.orientation,
+    unit: 'mm',
+    format: finalConfig.format,
+  });
+
+  const pageWidth = mergedDoc.internal.pageSize.getWidth();
+  const pageHeight = mergedDoc.internal.pageSize.getHeight();
+  const primaryRgb = hexToRgb(config.primaryColor || finalConfig.primaryColor);
+  const secondaryRgb = hexToRgb(config.secondaryColor || finalConfig.secondaryColor);
+  const textRgb = hexToRgb(finalConfig.textColor);
+
+  for (let i = 0; i < users.length; i++) {
+    const user = users[i];
+    
+    if (i > 0) {
+      mergedDoc.addPage();
+    }
+
+    // Background
+    mergedDoc.setFillColor(255, 255, 255);
+    mergedDoc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+    // Prepare template data
+    const userAbstract = abstracts?.find(a => a.userId === user.id && a.status === 'APROBADO');
+    const templateData: Record<string, string> = {
+      '{{nombre}}': user.name,
+      '{{evento}}': event.name,
+      '{{fecha}}': `${formatDate(event.startDate)} al ${formatDate(event.endDate)}`,
+      '{{firmante}}': finalConfig.signerName || '',
+      '{{cargo}}': finalConfig.signerTitle || '',
+      '{{titulo}}': userAbstract?.title || '',
+      '{{categoria}}': userAbstract?.categoryType || '',
+    };
+
+    // Render each enabled element
+    for (const element of elements.filter(e => e.enabled)) {
+      const x = (element.x - element.width / 2) * pageWidth / 100;
+      const y = (element.y - element.height / 2) * pageHeight / 100;
+      const w = element.width * pageWidth / 100;
+      const h = element.height * pageHeight / 100;
+      const centerX = element.x * pageWidth / 100;
+      const centerY = element.y * pageHeight / 100;
+
+      switch (element.type) {
+        case 'shape': {
+          const color = getColorRgb(element.style.backgroundColor, primaryRgb, secondaryRgb, textRgb);
+          mergedDoc.setFillColor(color.r, color.g, color.b);
+          mergedDoc.rect(x, y, w, h, 'F');
+          break;
+        }
+
+        case 'line': {
+          const color = getColorRgb(element.style.backgroundColor, primaryRgb, secondaryRgb, textRgb);
+          mergedDoc.setDrawColor(color.r, color.g, color.b);
+          mergedDoc.setLineWidth(0.5);
+          mergedDoc.line(x, centerY, x + w, centerY);
+          break;
+        }
+
+        case 'text': {
+          let content = element.content;
+          Object.entries(templateData).forEach(([key, value]) => {
+            content = content.replace(new RegExp(key, 'g'), value);
+          });
+
+          const color = getColorRgb(element.style.color, primaryRgb, secondaryRgb, textRgb);
+          mergedDoc.setTextColor(color.r, color.g, color.b);
+          mergedDoc.setFontSize(element.style.fontSize || 12);
+          
+          const fontWeight = element.style.fontWeight === 'bold' ? 'bold' : 'normal';
+          mergedDoc.setFont('helvetica', fontWeight);
+          
+          const splitText = mergedDoc.splitTextToSize(content, w);
+          mergedDoc.text(splitText, centerX, centerY, { align: 'center' });
+          break;
+        }
+
+        case 'logo': {
+          if (element.content) {
+            try {
+              const imgData = await loadImageAsBase64(element.content);
+              if (imgData) {
+                mergedDoc.addImage(imgData, 'PNG', x, y, w, h);
+              }
+            } catch (e) {
+              console.error('Error loading logo:', e);
+            }
+          }
+          break;
+        }
+
+        case 'qr':
+        case 'photo': {
+          mergedDoc.setFillColor(240, 240, 240);
+          mergedDoc.rect(x, y, w, h, 'F');
+          break;
+        }
+      }
+    }
+
+    // Add certificate ID
+    const certificateId = `CERT-${Date.now().toString(36).toUpperCase()}-${i}`;
+    mergedDoc.setFontSize(8);
+    mergedDoc.setTextColor(150, 150, 150);
+    mergedDoc.text(`ID: ${certificateId}`, pageWidth - 10, pageHeight - 5, { align: 'right' });
+  }
+
+  const fileName = `Certificados_${event.name.replace(/\s+/g, '_')}_${certificateType}.pdf`;
+  mergedDoc.save(fileName);
+}
+
+// Legacy bulk export function
 export function generateBulkCertificates(
   users: User[],
   event: Event,
@@ -298,44 +613,6 @@ export function generateBulkCertificates(
   abstracts?: Abstract[],
   config?: Partial<CertificateConfig>
 ): void {
-  const doc = new jsPDF({
-    orientation: config?.orientation || 'landscape',
-    unit: 'mm',
-    format: config?.format || 'a4',
-  });
-
-  users.forEach((user, index) => {
-    const data: CertificateData = {
-      participantName: user.name,
-      eventName: event.name,
-      eventDate: `${formatDate(event.startDate)} al ${formatDate(event.endDate)}`,
-      certificateType,
-      primaryColor: event.primaryColor,
-      secondaryColor: event.secondaryColor,
-      bannerImageUrl: event.bannerImageUrl,
-      config,
-    };
-
-    if (certificateType === 'presentation' && abstracts) {
-      const userAbstract = abstracts.find(a => a.userId === user.id && a.status === 'APROBADO');
-      if (userAbstract) {
-        data.abstractTitle = userAbstract.title;
-        data.categoryType = userAbstract.categoryType;
-      }
-    }
-
-    const singleDoc = generateCertificate(data);
-    
-    if (index > 0) {
-      doc.addPage();
-    }
-    
-    // Copy page content - simplified approach
-    const pageData = singleDoc.output('datauristring');
-    // For bulk, we generate individual PDFs but could merge them
-  });
-
-  // Alternative: Save as zip or multiple files
   users.forEach((user, index) => {
     setTimeout(() => {
       const data: CertificateData = {
@@ -357,11 +634,11 @@ export function generateBulkCertificates(
       }
 
       generateAndSaveCertificate(data);
-    }, index * 500); // Stagger downloads to prevent blocking
+    }, index * 500);
   });
 }
 
-// Generate all certificates for an event in one merged PDF
+// Legacy merged PDF function
 export function generateAllCertificatesAsPDF(
   users: User[],
   event: Event,
@@ -369,10 +646,12 @@ export function generateAllCertificatesAsPDF(
   abstracts?: Abstract[],
   config?: Partial<CertificateConfig>
 ): void {
+  const finalConfig = { ...defaultCertificateConfig, ...config };
+  
   const mergedDoc = new jsPDF({
-    orientation: config?.orientation || 'landscape',
+    orientation: finalConfig.orientation,
     unit: 'mm',
-    format: config?.format || 'a4',
+    format: finalConfig.format,
   });
 
   users.forEach((user, index) => {
@@ -398,19 +677,17 @@ export function generateAllCertificatesAsPDF(
       }
     }
 
-    // Generate certificate content directly in the merged doc
-    addCertificatePage(mergedDoc, data, config);
+    addCertificatePage(mergedDoc, data, finalConfig);
   });
 
   const fileName = `Certificados_${event.name.replace(/\s+/g, '_')}_${certificateType}.pdf`;
   mergedDoc.save(fileName);
 }
 
-function addCertificatePage(doc: jsPDF, data: CertificateData, config?: Partial<CertificateConfig>): void {
-  const finalConfig = { ...defaultCertificateConfig, ...config };
-  const primaryRgb = hexToRgb(data.primaryColor || finalConfig.primaryColor);
-  const secondaryRgb = hexToRgb(data.secondaryColor || finalConfig.secondaryColor);
-  const textRgb = hexToRgb(finalConfig.textColor);
+function addCertificatePage(doc: jsPDF, data: CertificateData, config: CertificateConfig): void {
+  const primaryRgb = hexToRgb(data.primaryColor || config.primaryColor);
+  const secondaryRgb = hexToRgb(data.secondaryColor || config.secondaryColor);
+  const textRgb = hexToRgb(config.textColor);
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -428,13 +705,13 @@ function addCertificatePage(doc: jsPDF, data: CertificateData, config?: Partial<
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(32);
   doc.setFont('helvetica', 'bold');
-  doc.text(finalConfig.title, pageWidth / 2, 25, { align: 'center' });
+  doc.text(config.title, pageWidth / 2, 25, { align: 'center' });
 
   const typeLabel = {
     'participation': 'DE PARTICIPACIÓN',
     'presentation': 'DE PRESENTACIÓN',
     'reviewer': 'DE REVISOR CIENTÍFICO',
-    'custom': finalConfig.subtitle || 'ESPECIAL',
+    'custom': config.subtitle || 'ESPECIAL',
   }[data.certificateType];
 
   doc.setFontSize(14);
@@ -444,7 +721,7 @@ function addCertificatePage(doc: jsPDF, data: CertificateData, config?: Partial<
   // Content
   doc.setTextColor(textRgb.r, textRgb.g, textRgb.b);
   doc.setFontSize(14);
-  doc.text(finalConfig.headerText, pageWidth / 2, 60, { align: 'center' });
+  doc.text(config.headerText, pageWidth / 2, 60, { align: 'center' });
 
   doc.setFontSize(28);
   doc.setFont('helvetica', 'bold');
@@ -479,7 +756,7 @@ function addCertificatePage(doc: jsPDF, data: CertificateData, config?: Partial<
   } else if (data.certificateType === 'reviewer') {
     doc.text('ha participado como Revisor Científico en el evento', pageWidth / 2, yPos, { align: 'center' });
   } else {
-    doc.text(finalConfig.bodyTemplate, pageWidth / 2, yPos, { align: 'center' });
+    doc.text(config.bodyTemplate, pageWidth / 2, yPos, { align: 'center' });
   }
 
   yPos += 15;
@@ -498,18 +775,9 @@ function addCertificatePage(doc: jsPDF, data: CertificateData, config?: Partial<
   // Footer
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(10);
-  doc.text(finalConfig.footerText, pageWidth / 2, pageHeight - 10, { align: 'center' });
+  doc.text(config.footerText, pageWidth / 2, pageHeight - 10, { align: 'center' });
 
-  const certificateId = `CERT-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+  const certificateId = `CERT-${Date.now().toString(36).toUpperCase()}`;
   doc.setFontSize(8);
   doc.text(`ID: ${certificateId}`, pageWidth - 10, pageHeight - 5, { align: 'right' });
-}
-
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('es-ES', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
 }
