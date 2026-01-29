@@ -14,12 +14,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ImageUploader } from '@/components/ImageUploader';
 import { toast } from 'sonner';
 import { 
-  generateParticipationCertificate, 
-  generateAllCertificatesAsPDF,
   CertificateConfig,
   defaultCertificateConfig,
-  generateAndSaveCertificate,
+  generateAndSaveCertificateFromElements,
+  generateAllCertificatesFromElements,
 } from '@/lib/certificateGenerator';
+import { CanvasElement, defaultCertificateElements, defaultCredentialElements, CredentialDesignConfig } from '@/components/designCanvas/types';
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 
@@ -110,7 +110,7 @@ export default function Users() {
     }
   };
 
-  const getEventAndConfig = (): { event: Event; config: CertificateConfig } | null => {
+  const getEventConfigAndElements = (): { event: Event; config: CertificateConfig; elements: CanvasElement[] } | null => {
     const events = db.events.getActive();
     if (events.length === 0) {
       toast.error('No hay eventos activos');
@@ -118,53 +118,72 @@ export default function Users() {
     }
     const event = events[0];
     
-    // Load saved config for this event
-    const savedConfigKey = `certificate_config_${event.id}`;
+    // Load saved config for this event (v2 key)
+    const savedConfigKey = `certificate_config_v2_${event.id}`;
+    const savedElementsKey = `certificate_elements_v2_${event.id}`;
+    
     const savedConfig = localStorage.getItem(savedConfigKey);
+    const savedElements = localStorage.getItem(savedElementsKey);
+    
     const config = savedConfig ? JSON.parse(savedConfig) : {
       ...defaultCertificateConfig,
       primaryColor: event.primaryColor,
       secondaryColor: event.secondaryColor,
     };
     
-    return { event, config };
+    const elements = savedElements ? JSON.parse(savedElements) : defaultCertificateElements;
+    
+    return { event, config, elements };
   };
 
-  const handleGenerateCertificate = (user: User) => {
-    const result = getEventAndConfig();
+  const handleGenerateCertificate = async (user: User) => {
+    const result = getEventConfigAndElements();
     if (!result) return;
     
-    const { event, config } = result;
+    const { event, config, elements } = result;
     
-    generateAndSaveCertificate({
-      participantName: user.name,
-      eventName: event.name,
-      eventDate: `${formatDate(event.startDate)} al ${formatDate(event.endDate)}`,
-      certificateType: 'participation',
-      primaryColor: config.primaryColor,
-      secondaryColor: config.secondaryColor,
-      config,
-    });
-    toast.success('Certificado generado con la configuración guardada');
+    try {
+      await generateAndSaveCertificateFromElements(
+        {
+          participantName: user.name,
+          eventName: event.name,
+          eventDate: `${formatDate(event.startDate)} al ${formatDate(event.endDate)}`,
+          certificateType: 'participation',
+          primaryColor: config.primaryColor,
+          secondaryColor: config.secondaryColor,
+        },
+        elements,
+        config
+      );
+      toast.success('Certificado generado con la configuración guardada');
+    } catch (error) {
+      console.error('Error generating certificate:', error);
+      toast.error('Error al generar el certificado');
+    }
   };
 
-  const handleGenerateCredential = async (user: User) => {
+  const getCredentialConfigAndElements = (): { event: Event; config: CredentialDesignConfig; elements: CanvasElement[] } | null => {
     const events = db.events.getActive();
     if (events.length === 0) {
       toast.error('No hay eventos activos');
-      return;
+      return null;
     }
     const event = events[0];
 
-    // Load saved credential config
-    const savedConfigKey = `credential_config_${event.id}`;
+    // Load saved credential config (v2 key)
+    const savedConfigKey = `credential_config_v2_${event.id}`;
+    const savedElementsKey = `credential_elements_v2_${event.id}`;
+    
     const savedConfig = localStorage.getItem(savedConfigKey);
-    const config = savedConfig ? JSON.parse(savedConfig) : {
+    const savedElements = localStorage.getItem(savedElementsKey);
+    
+    const defaultConfig: CredentialDesignConfig = {
       orientation: 'portrait',
       width: 85.6,
       height: 53.98,
       primaryColor: event.primaryColor,
       secondaryColor: event.secondaryColor,
+      backgroundColor: '#ffffff',
       textColor: '#1e293b',
       showPhoto: true,
       showQR: true,
@@ -172,18 +191,37 @@ export default function Users() {
       showAffiliation: true,
       showCountry: false,
       qrDataFields: ['name', 'email', 'event'],
+      elements: [],
     };
+    
+    const config = savedConfig ? { ...defaultConfig, ...JSON.parse(savedConfig) } : defaultConfig;
+    const elements = savedElements ? JSON.parse(savedElements) : defaultCredentialElements;
+    
+    return { event, config, elements };
+  };
+
+  const handleGenerateCredential = async (user: User) => {
+    const result = getCredentialConfigAndElements();
+    if (!result) return;
+    
+    const { event, config, elements } = result;
 
     try {
-      const doc = await generateSingleCredential(user, event, config);
+      const doc = await generateSingleCredentialFromElements(user, event, config, elements);
       doc.save(`Credencial_${user.name.replace(/\s+/g, '_')}.pdf`);
       toast.success('Credencial generada con la configuración guardada');
-    } catch {
+    } catch (error) {
+      console.error('Error generating credential:', error);
       toast.error('Error al generar la credencial');
     }
   };
 
-  const generateSingleCredential = async (user: User, event: Event, config: any): Promise<jsPDF> => {
+  const generateSingleCredentialFromElements = async (
+    user: User, 
+    event: Event, 
+    config: CredentialDesignConfig,
+    elements: CanvasElement[]
+  ): Promise<jsPDF> => {
     const primaryRgb = hexToRgb(config.primaryColor);
     const secondaryRgb = hexToRgb(config.secondaryColor);
     const textRgb = hexToRgb(config.textColor);
@@ -201,113 +239,115 @@ export default function Users() {
     doc.setFillColor(255, 255, 255);
     doc.rect(0, 0, width, height, 'F');
 
-    // Header bar
-    doc.setFillColor(primaryRgb.r, primaryRgb.g, primaryRgb.b);
-    doc.rect(0, 0, width, 12, 'F');
+    const roleLabels: Record<string, string> = {
+      USER: 'Participante',
+      REVIEWER: 'Revisor',
+      COMMITTEE: 'Comité',
+      ADMIN: 'Organizador',
+    };
 
-    // Event name - FULL
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(7);
-    doc.setFont('helvetica', 'bold');
-    const splitName = doc.splitTextToSize(event.name, width - 6);
-    doc.text(splitName, width / 2, 5, { align: 'center' });
+    // Render elements based on saved positions
+    for (const element of elements.filter(e => e.enabled)) {
+      const x = (element.x - element.width / 2) * width / 100;
+      const y = (element.y - element.height / 2) * height / 100;
+      const w = element.width * width / 100;
+      const h = element.height * height / 100;
+      const centerX = element.x * width / 100;
+      const centerY = element.y * height / 100;
 
-    // Photo placeholder
-    if (config.showPhoto) {
-      doc.setFillColor(240, 240, 240);
-      doc.roundedRect(width / 2 - 10, 15, 20, 24, 2, 2, 'F');
-      doc.setDrawColor(secondaryRgb.r, secondaryRgb.g, secondaryRgb.b);
-      doc.setLineWidth(0.5);
-      doc.roundedRect(width / 2 - 10, 15, 20, 24, 2, 2, 'S');
-      doc.setTextColor(150, 150, 150);
-      doc.setFontSize(5);
-      doc.text('FOTO', width / 2, 28, { align: 'center' });
-    }
+      if (element.type === 'shape') {
+        const color = element.style.backgroundColor === 'primary' ? primaryRgb : secondaryRgb;
+        doc.setFillColor(color.r, color.g, color.b);
+        doc.rect(x, y, w, h, 'F');
+      }
 
-    // Name
-    let yPos = config.showPhoto ? 43 : 18;
-    doc.setTextColor(textRgb.r, textRgb.g, textRgb.b);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.text(user.name, width / 2, yPos, { align: 'center' });
+      if (element.type === 'text') {
+        let content = element.content;
+        content = content.replace('{{evento}}', event.name);
+        content = content.replace('{{nombre}}', user.name);
+        content = content.replace('{{rol}}', roleLabels[user.role] || user.role);
+        content = content.replace('{{afiliacion}}', user.affiliation || '');
+        content = content.replace('{{pais}}', user.country || '');
+        content = content.replace('{{id}}', `ID-${user.id.substring(0, 8).toUpperCase()}`);
 
-    // Role badge
-    if (config.showRole) {
-      yPos += 5;
-      const roleLabels: Record<string, string> = {
-        USER: 'Participante',
-        REVIEWER: 'Revisor',
-        COMMITTEE: 'Comité',
-        ADMIN: 'Organizador',
-      };
-      doc.setFillColor(secondaryRgb.r, secondaryRgb.g, secondaryRgb.b);
-      const roleText = roleLabels[user.role] || user.role;
-      doc.setFontSize(6);
-      const roleWidth = doc.getTextWidth(roleText) + 4;
-      doc.roundedRect(width / 2 - roleWidth / 2, yPos - 3, roleWidth, 5, 1, 1, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.text(roleText, width / 2, yPos, { align: 'center' });
-    }
+        const isWhite = element.style.color === 'white';
+        const isPrimary = element.style.color === 'primary';
+        const isSecondary = element.style.color === 'secondary';
+        
+        if (isWhite) doc.setTextColor(255, 255, 255);
+        else if (isPrimary) doc.setTextColor(primaryRgb.r, primaryRgb.g, primaryRgb.b);
+        else if (isSecondary) doc.setTextColor(secondaryRgb.r, secondaryRgb.g, secondaryRgb.b);
+        else doc.setTextColor(textRgb.r, textRgb.g, textRgb.b);
 
-    // Affiliation
-    if (config.showAffiliation && user.affiliation) {
-      yPos += 6;
-      doc.setTextColor(100, 100, 100);
-      doc.setFontSize(6);
-      doc.text(user.affiliation, width / 2, yPos, { align: 'center' });
-    }
-
-    // Country
-    if (config.showCountry && user.country) {
-      yPos += 4;
-      doc.setFontSize(5);
-      doc.text(user.country, width / 2, yPos, { align: 'center' });
-    }
-
-    // QR Code
-    if (config.showQR) {
-      const qrData: Record<string, string> = {};
-      (config.qrDataFields || ['name', 'email']).forEach((field: string) => {
-        switch (field) {
-          case 'name': qrData.name = user.name; break;
-          case 'email': qrData.email = user.email; break;
-          case 'role': qrData.role = user.role; break;
-          case 'affiliation': qrData.affiliation = user.affiliation || ''; break;
-          case 'country': qrData.country = user.country || ''; break;
-          case 'event': qrData.event = event.name; break;
-          case 'id': qrData.id = user.id; break;
+        doc.setFontSize(element.style.fontSize || 10);
+        doc.setFont('helvetica', element.style.fontWeight === 'bold' ? 'bold' : 'normal');
+        
+        // Handle role badge background
+        if (element.id === 'role-badge' && element.style.backgroundColor === 'secondary') {
+          const roleText = roleLabels[user.role] || user.role;
+          const textWidth = doc.getTextWidth(roleText) + 4;
+          doc.setFillColor(secondaryRgb.r, secondaryRgb.g, secondaryRgb.b);
+          doc.roundedRect(centerX - textWidth / 2, centerY - 3, textWidth, 5, 1, 1, 'F');
+          doc.setTextColor(255, 255, 255);
+          content = roleText;
         }
-      });
-      
-      try {
-        const qrDataUrl = await generateQRDataUrl(JSON.stringify(qrData));
-        if (qrDataUrl) {
-          doc.addImage(qrDataUrl, 'PNG', width - 14, height - 14, 12, 12);
-        }
-      } catch {
+        
+        const splitText = doc.splitTextToSize(content, w);
+        doc.text(splitText, centerX, centerY, { align: 'center' });
+      }
+
+      if (element.type === 'photo') {
         doc.setFillColor(240, 240, 240);
-        doc.rect(width - 12, height - 12, 10, 10, 'F');
+        doc.roundedRect(x, y, w, h, 2, 2, 'F');
+        doc.setDrawColor(secondaryRgb.r, secondaryRgb.g, secondaryRgb.b);
+        doc.roundedRect(x, y, w, h, 2, 2, 'S');
+        doc.setTextColor(150, 150, 150);
+        doc.setFontSize(5);
+        doc.text('FOTO', centerX, centerY, { align: 'center' });
+      }
+
+      if (element.type === 'logo' && element.content) {
+        try {
+          doc.addImage(element.content, 'PNG', x, y, w, h);
+        } catch {
+          // Skip if image fails to load
+        }
+      }
+
+      if (element.type === 'qr') {
+        const qrData: Record<string, string> = {};
+        (config.qrDataFields || ['name', 'email']).forEach((field: string) => {
+          switch (field) {
+            case 'name': qrData.name = user.name; break;
+            case 'email': qrData.email = user.email; break;
+            case 'role': qrData.role = user.role; break;
+            case 'affiliation': qrData.affiliation = user.affiliation || ''; break;
+            case 'country': qrData.country = user.country || ''; break;
+            case 'event': qrData.event = event.name; break;
+            case 'id': qrData.id = user.id; break;
+          }
+        });
+        
+        try {
+          const qrDataUrl = await generateQRDataUrl(JSON.stringify(qrData));
+          if (qrDataUrl) {
+            doc.addImage(qrDataUrl, 'PNG', x, y, w, h);
+          }
+        } catch {
+          doc.setFillColor(240, 240, 240);
+          doc.rect(x, y, w, h, 'F');
+        }
       }
     }
-
-    // Footer bar
-    doc.setFillColor(primaryRgb.r, primaryRgb.g, primaryRgb.b);
-    doc.rect(0, height - 4, width, 4, 'F');
-
-    // Credential ID
-    const credentialId = `ID-${user.id.substring(0, 8).toUpperCase()}`;
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(4);
-    doc.text(credentialId, 3, height - 1.5);
 
     return doc;
   };
 
-  const handleExportAllCertificates = () => {
-    const result = getEventAndConfig();
+  const handleExportAllCertificates = async () => {
+    const result = getEventConfigAndElements();
     if (!result) return;
     
-    const { event, config } = result;
+    const { event, config, elements } = result;
     const activeUsers = users.filter(u => u.isActive);
     
     if (activeUsers.length === 0) {
@@ -315,34 +355,20 @@ export default function Users() {
       return;
     }
     
-    generateAllCertificatesAsPDF(activeUsers, event, 'participation', undefined, config);
-    toast.success(`${activeUsers.length} certificados exportados con la configuración guardada`);
+    try {
+      await generateAllCertificatesFromElements(activeUsers, event, 'participation', elements, config, undefined);
+      toast.success(`${activeUsers.length} certificados exportados con la configuración guardada`);
+    } catch (error) {
+      console.error('Error exporting certificates:', error);
+      toast.error('Error al exportar los certificados');
+    }
   };
 
   const handleExportAllCredentials = async () => {
-    const events = db.events.getActive();
-    if (events.length === 0) {
-      toast.error('No hay eventos activos');
-      return;
-    }
-    const event = events[0];
-
-    const savedConfigKey = `credential_config_${event.id}`;
-    const savedConfig = localStorage.getItem(savedConfigKey);
-    const config = savedConfig ? JSON.parse(savedConfig) : {
-      orientation: 'portrait',
-      width: 85.6,
-      height: 53.98,
-      primaryColor: event.primaryColor,
-      secondaryColor: event.secondaryColor,
-      textColor: '#1e293b',
-      showPhoto: true,
-      showQR: true,
-      showRole: true,
-      showAffiliation: true,
-      showCountry: false,
-      qrDataFields: ['name', 'email', 'event'],
-    };
+    const result = getCredentialConfigAndElements();
+    if (!result) return;
+    
+    const { event, config, elements } = result;
 
     const activeUsers = users.filter(u => u.isActive);
     if (activeUsers.length === 0) {
@@ -351,14 +377,20 @@ export default function Users() {
     }
 
     try {
-      await generateAllCredentialsPDF(activeUsers, event, config);
+      await generateAllCredentialsPDFFromElements(activeUsers, event, config, elements);
       toast.success(`${activeUsers.length} credenciales exportadas con la configuración guardada`);
-    } catch {
+    } catch (error) {
+      console.error('Error exporting credentials:', error);
       toast.error('Error al exportar las credenciales');
     }
   };
 
-  const generateAllCredentialsPDF = async (usersToExport: User[], event: Event, config: any): Promise<void> => {
+  const generateAllCredentialsPDFFromElements = async (
+    usersToExport: User[], 
+    event: Event, 
+    config: CredentialDesignConfig,
+    elements: CanvasElement[]
+  ): Promise<void> => {
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
@@ -380,6 +412,13 @@ export default function Users() {
     const secondaryRgb = hexToRgb(config.secondaryColor);
     const textRgb = hexToRgb(config.textColor);
 
+    const roleLabels: Record<string, string> = {
+      USER: 'Participante',
+      REVIEWER: 'Revisor',
+      COMMITTEE: 'Comité',
+      ADMIN: 'Organizador',
+    };
+
     for (let i = 0; i < usersToExport.length; i++) {
       const user = usersToExport[i];
       const posOnPage = i % perPage;
@@ -390,97 +429,100 @@ export default function Users() {
         doc.addPage();
       }
 
-      const x = margin + col * (credWidth + gap);
-      const y = margin + row * (credHeight + gap);
+      const baseX = margin + col * (credWidth + gap);
+      const baseY = margin + row * (credHeight + gap);
 
-      // Draw credential
+      // Border
       doc.setDrawColor(200, 200, 200);
       doc.setLineWidth(0.3);
-      doc.rect(x, y, credWidth, credHeight, 'S');
+      doc.rect(baseX, baseY, credWidth, credHeight, 'S');
       doc.setFillColor(255, 255, 255);
-      doc.rect(x, y, credWidth, credHeight, 'F');
+      doc.rect(baseX, baseY, credWidth, credHeight, 'F');
 
-      // Header
-      doc.setFillColor(primaryRgb.r, primaryRgb.g, primaryRgb.b);
-      doc.rect(x, y, credWidth, 12, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(6);
-      doc.setFont('helvetica', 'bold');
-      const splitName = doc.splitTextToSize(event.name, credWidth - 4);
-      doc.text(splitName, x + credWidth / 2, y + 4, { align: 'center' });
+      // Render elements
+      for (const element of elements.filter(e => e.enabled)) {
+        const x = baseX + (element.x - element.width / 2) * credWidth / 100;
+        const y = baseY + (element.y - element.height / 2) * credHeight / 100;
+        const w = element.width * credWidth / 100;
+        const h = element.height * credHeight / 100;
+        const centerX = baseX + element.x * credWidth / 100;
+        const centerY = baseY + element.y * credHeight / 100;
 
-      // Photo
-      if (config.showPhoto) {
-        doc.setFillColor(240, 240, 240);
-        doc.roundedRect(x + credWidth / 2 - 10, y + 15, 20, 24, 2, 2, 'F');
-        doc.setDrawColor(secondaryRgb.r, secondaryRgb.g, secondaryRgb.b);
-        doc.roundedRect(x + credWidth / 2 - 10, y + 15, 20, 24, 2, 2, 'S');
-        doc.setTextColor(150, 150, 150);
-        doc.setFontSize(5);
-        doc.text('FOTO', x + credWidth / 2, y + 28, { align: 'center' });
-      }
+        if (element.type === 'shape') {
+          const color = element.style.backgroundColor === 'primary' ? primaryRgb : secondaryRgb;
+          doc.setFillColor(color.r, color.g, color.b);
+          doc.rect(x, y, w, h, 'F');
+        }
 
-      // Name
-      let yPos = y + (config.showPhoto ? 43 : 18);
-      doc.setTextColor(textRgb.r, textRgb.g, textRgb.b);
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
-      doc.text(user.name, x + credWidth / 2, yPos, { align: 'center' });
+        if (element.type === 'text') {
+          let content = element.content;
+          content = content.replace('{{evento}}', event.name);
+          content = content.replace('{{nombre}}', user.name);
+          content = content.replace('{{rol}}', roleLabels[user.role] || user.role);
+          content = content.replace('{{afiliacion}}', user.affiliation || '');
+          content = content.replace('{{pais}}', user.country || '');
+          content = content.replace('{{id}}', `ID-${user.id.substring(0, 8).toUpperCase()}`);
 
-      // Role
-      if (config.showRole) {
-        yPos += 5;
-        const roleLabels: Record<string, string> = { USER: 'Participante', REVIEWER: 'Revisor', COMMITTEE: 'Comité', ADMIN: 'Organizador' };
-        doc.setFillColor(secondaryRgb.r, secondaryRgb.g, secondaryRgb.b);
-        const roleText = roleLabels[user.role] || user.role;
-        doc.setFontSize(6);
-        const roleWidth = doc.getTextWidth(roleText) + 4;
-        doc.roundedRect(x + credWidth / 2 - roleWidth / 2, yPos - 3, roleWidth, 5, 1, 1, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.text(roleText, x + credWidth / 2, yPos, { align: 'center' });
-      }
+          const isWhite = element.style.color === 'white';
+          if (isWhite) doc.setTextColor(255, 255, 255);
+          else doc.setTextColor(textRgb.r, textRgb.g, textRgb.b);
 
-      // Affiliation
-      if (config.showAffiliation && user.affiliation) {
-        yPos += 6;
-        doc.setTextColor(100, 100, 100);
-        doc.setFontSize(6);
-        doc.text(user.affiliation, x + credWidth / 2, yPos, { align: 'center' });
-      }
+          doc.setFontSize(element.style.fontSize || 10);
+          doc.setFont('helvetica', element.style.fontWeight === 'bold' ? 'bold' : 'normal');
 
-      // QR
-      if (config.showQR) {
-        const qrData: Record<string, string> = {};
-        (config.qrDataFields || ['name', 'email']).forEach((field: string) => {
-          switch (field) {
-            case 'name': qrData.name = user.name; break;
-            case 'email': qrData.email = user.email; break;
-            case 'role': qrData.role = user.role; break;
-            case 'affiliation': qrData.affiliation = user.affiliation || ''; break;
-            case 'country': qrData.country = user.country || ''; break;
-            case 'event': qrData.event = event.name; break;
-            case 'id': qrData.id = user.id; break;
+          if (element.id === 'role-badge' && element.style.backgroundColor === 'secondary') {
+            const roleText = roleLabels[user.role] || user.role;
+            const textWidth = doc.getTextWidth(roleText) + 4;
+            doc.setFillColor(secondaryRgb.r, secondaryRgb.g, secondaryRgb.b);
+            doc.roundedRect(centerX - textWidth / 2, centerY - 3, textWidth, 5, 1, 1, 'F');
+            doc.setTextColor(255, 255, 255);
+            content = roleText;
           }
-        });
-        
-        try {
-          const qrDataUrl = await generateQRDataUrl(JSON.stringify(qrData));
-          if (qrDataUrl) {
-            doc.addImage(qrDataUrl, 'PNG', x + credWidth - 13, y + credHeight - 13, 10, 10);
-          }
-        } catch {
+          
+          const splitText = doc.splitTextToSize(content, w);
+          doc.text(splitText, centerX, centerY, { align: 'center' });
+        }
+
+        if (element.type === 'photo') {
           doc.setFillColor(240, 240, 240);
-          doc.rect(x + credWidth - 12, y + credHeight - 12, 10, 10, 'F');
+          doc.roundedRect(x, y, w, h, 2, 2, 'F');
+          doc.setDrawColor(secondaryRgb.r, secondaryRgb.g, secondaryRgb.b);
+          doc.roundedRect(x, y, w, h, 2, 2, 'S');
+        }
+
+        if (element.type === 'logo' && element.content) {
+          try {
+            doc.addImage(element.content, 'PNG', x, y, w, h);
+          } catch {
+            // Skip if image fails
+          }
+        }
+
+        if (element.type === 'qr') {
+          const qrData: Record<string, string> = {};
+          (config.qrDataFields || ['name', 'email']).forEach((field: string) => {
+            switch (field) {
+              case 'name': qrData.name = user.name; break;
+              case 'email': qrData.email = user.email; break;
+              case 'role': qrData.role = user.role; break;
+              case 'affiliation': qrData.affiliation = user.affiliation || ''; break;
+              case 'country': qrData.country = user.country || ''; break;
+              case 'event': qrData.event = event.name; break;
+              case 'id': qrData.id = user.id; break;
+            }
+          });
+          
+          try {
+            const qrDataUrl = await generateQRDataUrl(JSON.stringify(qrData));
+            if (qrDataUrl) {
+              doc.addImage(qrDataUrl, 'PNG', x, y, w, h);
+            }
+          } catch {
+            doc.setFillColor(240, 240, 240);
+            doc.rect(x, y, w, h, 'F');
+          }
         }
       }
-
-      // Footer
-      doc.setFillColor(primaryRgb.r, primaryRgb.g, primaryRgb.b);
-      doc.rect(x, y + credHeight - 4, credWidth, 4, 'F');
-      const credentialId = `ID-${user.id.substring(0, 8).toUpperCase()}`;
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(4);
-      doc.text(credentialId, x + 3, y + credHeight - 1.5);
     }
 
     const fileName = `Credenciales_${event.name.replace(/\s+/g, '_')}.pdf`;

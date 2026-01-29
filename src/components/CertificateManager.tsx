@@ -12,8 +12,8 @@ import { db, Event, User } from '@/lib/database';
 import {
   CertificateConfig,
   defaultCertificateConfig,
-  generateAndSaveCertificate,
-  generateAllCertificatesAsPDF,
+  generateAndSaveCertificateFromElements,
+  generateAllCertificatesFromElements,
 } from '@/lib/certificateGenerator';
 import { Award, Download, Users, FileDown, Save, Monitor, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
@@ -134,25 +134,33 @@ export function CertificateManager({ event }: CertificateManagerProps) {
     );
   };
 
-  const handleGenerateSingle = (user: User) => {
+  const handleGenerateSingle = async (user: User) => {
     handleSaveConfig();
 
     const abstracts = certificateType === 'presentation'
       ? eventAbstracts.filter(a => a.userId === user.id && a.status === 'APROBADO')
       : undefined;
 
-    generateAndSaveCertificate({
-      participantName: user.name,
-      eventName: event.name,
-      eventDate: `${formatDate(event.startDate)} al ${formatDate(event.endDate)}`,
-      certificateType,
-      abstractTitle: abstracts?.[0]?.title,
-      categoryType: abstracts?.[0]?.categoryType,
-      primaryColor: config.primaryColor,
-      secondaryColor: config.secondaryColor,
-      config,
-    });
-    toast.success(`Certificado generado para ${user.name}`);
+    try {
+      await generateAndSaveCertificateFromElements(
+        {
+          participantName: user.name,
+          eventName: event.name,
+          eventDate: `${formatDate(event.startDate)} al ${formatDate(event.endDate)}`,
+          certificateType,
+          abstractTitle: abstracts?.[0]?.title,
+          categoryType: abstracts?.[0]?.categoryType,
+          primaryColor: config.primaryColor,
+          secondaryColor: config.secondaryColor,
+        },
+        elements,
+        config
+      );
+      toast.success(`Certificado generado para ${user.name}`);
+    } catch (error) {
+      console.error('Error generating certificate:', error);
+      toast.error('Error al generar el certificado');
+    }
   };
 
   const handleExportAll = async () => {
@@ -167,9 +175,17 @@ export function CertificateManager({ event }: CertificateManagerProps) {
     try {
       const usersToExport = eligibleUsers.filter(u => selectedUsers.includes(u.id));
       const abstracts = certificateType === 'presentation' ? eventAbstracts : undefined;
-      generateAllCertificatesAsPDF(usersToExport, event, certificateType, abstracts, config);
+      await generateAllCertificatesFromElements(
+        usersToExport,
+        event,
+        certificateType,
+        elements,
+        config,
+        abstracts
+      );
       toast.success(`${usersToExport.length} certificados exportados en un solo PDF`);
-    } catch {
+    } catch (error) {
+      console.error('Error exporting certificates:', error);
       toast.error('Error al exportar los certificados');
     } finally {
       setIsExporting(false);
