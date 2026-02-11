@@ -69,7 +69,7 @@ export default function EditAbstract() {
         title: formData.title.trim(),
         summaryText: formData.summaryText.trim(),
         keywords: formData.keywords.split(',').map(k => k.trim()).filter(Boolean),
-        authors: formData.authors.split(',').map(a => a.trim()).filter(Boolean),
+        authors: formData.authors.split(',').map((a: string) => ({ id: Date.now().toString(), name: a.trim(), isMainAuthor: false } as any)).filter((a: any) => a.name),
         version: abstract.version + 1,
         status: 'EN_PROCESO', // Reset to pending after changes
       });

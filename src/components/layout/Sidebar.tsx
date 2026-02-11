@@ -36,7 +36,7 @@ const navItems: NavItem[] = [
   { label: 'Comité', icon: Users, href: '/committee', roles: ['COMMITTEE', 'ADMIN'] },
   { label: 'Programa', icon: CalendarDays, href: '/program', roles: ['COMMITTEE', 'ADMIN'] },
   { label: 'Mi Programa', icon: CalendarCheck, href: '/my-program', roles: ['USER', 'REVIEWER'] },
-  { label: 'Eventos', icon: Calendar, href: '/events', roles: ['ADMIN'] },
+  { label: 'Gestión Eventos', icon: Calendar, href: '/events', roles: ['ADMIN'] },
   { label: 'Usuarios', icon: Users, href: '/users', roles: ['ADMIN'] },
   // CMS Menu Items
   { label: 'Páginas CMS', icon: LayoutIcon, href: '/cms/pages', roles: ['ADMIN'] },

@@ -28,10 +28,30 @@ export interface User {
   isParticipant?: boolean; // Indica si también es participante registrado
 }
 
-export interface Event {
+// Macro Event - Container for simple events
+export interface MacroEvent {
   id: string;
   name: string;
+  acronym: string; // Siglas (unique)
   description: string;
+  startDate: string; // datetime
+  endDate: string; // datetime
+  logoUrl?: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+// Simple Event - Concrete activity linked to a macro event
+export interface Event {
+  id: string;
+  name: string; // Name in Spanish
+  nameEn: string; // Name in English
+  description: string;
+  macroEventId: string; // Required association
+  isActive: boolean;
+  createdBy: string;
+  createdAt: string;
+  // Legacy fields kept for compatibility
   startDate: string;
   endDate: string;
   bannerImageUrl: string;
@@ -39,11 +59,29 @@ export interface Event {
   primaryColor: string;
   secondaryColor: string;
   backgroundColor?: string;
-  isActive: boolean;
-  createdBy: string;
-  createdAt: string;
   formFields?: FormField[];
   userFormFields?: FormField[];
+}
+
+// Session - Time occurrence of a simple event
+export interface EventSession {
+  id: string;
+  eventId: string; // Simple event ID
+  date: string;
+  startTime: string;
+  endTime: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+// Attendance per session
+export interface SessionAttendance {
+  id: string;
+  sessionId: string;
+  eventId: string;
+  userId: string;
+  attended: boolean;
+  markedAt: string;
 }
 
 export interface FormField {
@@ -425,12 +463,40 @@ class Database {
     ];
     this.setCollection('users', users);
 
-    // Seed Events
+    // Seed Macro Events
+    const macroEvents: MacroEvent[] = [
+      {
+        id: 'me1',
+        name: 'Congreso Internacional de Biotecnología 2024',
+        acronym: 'CIB2024',
+        description: 'El macro evento más importante del sector biotecnológico en América Latina.',
+        startDate: '2024-06-15T08:00',
+        endDate: '2024-06-20T18:00',
+        logoUrl: 'https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?w=200&h=200&fit=crop',
+        isActive: true,
+        createdAt: '2024-01-01',
+      },
+      {
+        id: 'me2',
+        name: 'Simposio de Nanociencias 2024',
+        acronym: 'SN2024',
+        description: 'Simposio internacional de nanociencias y nanotecnología.',
+        startDate: '2024-09-10T08:00',
+        endDate: '2024-09-12T18:00',
+        isActive: true,
+        createdAt: '2024-02-15',
+      },
+    ];
+    this.setCollection('macroEvents', macroEvents);
+
+    // Seed Events (Simple Events)
     const events: Event[] = [
       {
         id: '1',
-        name: 'Congreso Internacional de Biotecnología 2024',
+        name: 'Taller de Terapia Génica',
+        nameEn: 'Gene Therapy Workshop',
         description: 'El evento más importante del sector biotecnológico en América Latina.',
+        macroEventId: 'me1',
         startDate: '2024-06-15',
         endDate: '2024-06-20',
         bannerImageUrl: 'https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?w=1200&h=400&fit=crop',
@@ -452,8 +518,10 @@ class Database {
       },
       {
         id: '2',
-        name: 'Simposio de Nanociencias 2024',
+        name: 'Conferencia de Nanotecnología Aplicada',
+        nameEn: 'Applied Nanotechnology Conference',
         description: 'Explorando las fronteras de la nanotecnología aplicada.',
+        macroEventId: 'me2',
         startDate: '2024-09-10',
         endDate: '2024-09-12',
         bannerImageUrl: 'https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=1200&h=400&fit=crop',
@@ -467,6 +535,29 @@ class Database {
       },
     ];
     this.setCollection('events', events);
+
+    // Seed Event Sessions
+    const eventSessions: EventSession[] = [
+      {
+        id: 'es1',
+        eventId: '1',
+        date: '2024-06-15',
+        startTime: '09:00',
+        endTime: '12:00',
+        isActive: true,
+        createdAt: '2024-01-01',
+      },
+      {
+        id: 'es2',
+        eventId: '1',
+        date: '2024-06-16',
+        startTime: '14:00',
+        endTime: '17:00',
+        isActive: true,
+        createdAt: '2024-01-01',
+      },
+    ];
+    this.setCollection('eventSessions', eventSessions);
 
     // Seed Abstracts
     const abstracts: Abstract[] = [
@@ -723,6 +814,123 @@ class Database {
     },
   };
 
+  // MACRO EVENTS CRUD
+  macroEvents = {
+    getAll: (): MacroEvent[] => this.getCollection<MacroEvent>('macroEvents'),
+
+    getById: (id: string): MacroEvent | undefined =>
+      this.getCollection<MacroEvent>('macroEvents').find(me => me.id === id),
+
+    getActive: (): MacroEvent[] =>
+      this.getCollection<MacroEvent>('macroEvents').filter(me => me.isActive),
+
+    create: (data: Omit<MacroEvent, 'id' | 'createdAt'>): MacroEvent => {
+      const items = this.getCollection<MacroEvent>('macroEvents');
+      // Check unique acronym
+      if (items.some(me => me.acronym === data.acronym)) {
+        throw new Error('Las siglas ya están en uso');
+      }
+      const item: MacroEvent = {
+        ...data,
+        id: this.generateId(),
+        createdAt: new Date().toISOString().split('T')[0],
+      };
+      items.push(item);
+      this.setCollection('macroEvents', items);
+      return item;
+    },
+
+    update: (id: string, data: Partial<MacroEvent>): MacroEvent => {
+      const items = this.getCollection<MacroEvent>('macroEvents');
+      const index = items.findIndex(me => me.id === id);
+      if (index === -1) throw new Error('Macro evento no encontrado');
+      if (data.acronym) {
+        const dup = items.find(me => me.acronym === data.acronym && me.id !== id);
+        if (dup) throw new Error('Las siglas ya están en uso');
+      }
+      items[index] = { ...items[index], ...data };
+      this.setCollection('macroEvents', items);
+      return items[index];
+    },
+
+    delete: (id: string): void => {
+      const me = this.macroEvents.getById(id);
+      if (me && me.isActive) throw new Error('Solo se puede eliminar macro eventos inactivos');
+      const items = this.getCollection<MacroEvent>('macroEvents').filter(me => me.id !== id);
+      this.setCollection('macroEvents', items);
+    },
+  };
+
+  // EVENT SESSIONS CRUD
+  eventSessions = {
+    getAll: (): EventSession[] => this.getCollection<EventSession>('eventSessions'),
+
+    getByEvent: (eventId: string): EventSession[] =>
+      this.getCollection<EventSession>('eventSessions')
+        .filter(s => s.eventId === eventId)
+        .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime)),
+
+    getById: (id: string): EventSession | undefined =>
+      this.getCollection<EventSession>('eventSessions').find(s => s.id === id),
+
+    create: (data: Omit<EventSession, 'id' | 'createdAt'>): EventSession => {
+      const items = this.getCollection<EventSession>('eventSessions');
+      const item: EventSession = {
+        ...data,
+        id: this.generateId(),
+        createdAt: new Date().toISOString().split('T')[0],
+      };
+      items.push(item);
+      this.setCollection('eventSessions', items);
+      return item;
+    },
+
+    update: (id: string, data: Partial<EventSession>): EventSession => {
+      const items = this.getCollection<EventSession>('eventSessions');
+      const index = items.findIndex(s => s.id === id);
+      if (index === -1) throw new Error('Sesión no encontrada');
+      items[index] = { ...items[index], ...data };
+      this.setCollection('eventSessions', items);
+      return items[index];
+    },
+
+    delete: (id: string): void => {
+      // Also delete associated attendance
+      const attendances = this.getCollection<SessionAttendance>('sessionAttendance').filter(a => a.sessionId !== id);
+      this.setCollection('sessionAttendance', attendances);
+      const items = this.getCollection<EventSession>('eventSessions').filter(s => s.id !== id);
+      this.setCollection('eventSessions', items);
+    },
+  };
+
+  // SESSION ATTENDANCE CRUD
+  sessionAttendance = {
+    getBySession: (sessionId: string): SessionAttendance[] =>
+      this.getCollection<SessionAttendance>('sessionAttendance').filter(a => a.sessionId === sessionId),
+
+    markAttendance: (sessionId: string, eventId: string, userId: string, attended: boolean): SessionAttendance => {
+      const items = this.getCollection<SessionAttendance>('sessionAttendance');
+      const existing = items.findIndex(a => a.sessionId === sessionId && a.userId === userId);
+      if (existing !== -1) {
+        items[existing].attended = attended;
+        items[existing].markedAt = new Date().toISOString();
+        this.setCollection('sessionAttendance', items);
+        return items[existing];
+      }
+      const item: SessionAttendance = {
+        id: this.generateId(),
+        sessionId,
+        eventId,
+        userId,
+        attended,
+        markedAt: new Date().toISOString(),
+      };
+      items.push(item);
+      this.setCollection('sessionAttendance', items);
+      return item;
+    },
+  };
+
   // EVENTS CRUD
   events = {
     getAll: (): Event[] => this.getCollection<Event>('events'),
@@ -834,7 +1042,7 @@ class Database {
     },
 
     assignReviewers: (id: string, reviewerIds: string[]): Abstract => {
-      return this.abstracts.update(id, { assignedReviewers: reviewerIds });
+      return this.abstracts.update(id, { assignedReviewerId: reviewerIds[0] });
     },
   };
 
@@ -1025,7 +1233,7 @@ class Database {
           
           // Update abstract with assigned reviewer
           const abstract = pendingAbstracts[abstractIndex];
-          const currentReviewers = abstract.assignedReviewers || [];
+          const currentReviewers = (abstract as any).assignedReviewers || [];
           this.abstracts.assignReviewers(abstract.id, [...currentReviewers, reviewer.id]);
           
           assignments.push(assignment);

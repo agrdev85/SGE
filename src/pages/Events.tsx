@@ -7,9 +7,16 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { db, Event, FormField } from '@/lib/database';
-import { Plus, Calendar, Users, FileText, Edit, Trash2, Settings2, Mail, Image, Palette, ArrowLeft, Wand2, Award, IdCard } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
+import { db, Event, MacroEvent, EventSession, FormField, SessionAttendance } from '@/lib/database';
+import {
+  Plus, Calendar, Users, FileText, Edit, Trash2, Settings2, Mail, Image, Palette,
+  ArrowLeft, Wand2, Award, IdCard, Search, Eye, Clock, CheckSquare, Layers, CalendarDays
+} from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ImageUploader } from '@/components/ImageUploader';
 import { FormBuilderWithPreview } from '@/components/formBuilder/FormBuilderWithPreview';
 import { EmailTemplateManager } from '@/components/EmailTemplateManager';
@@ -18,142 +25,366 @@ import { CertificateManager } from '@/components/CertificateManager';
 import { CredentialsManager } from '@/components/CredentialsManager';
 import { toast } from 'sonner';
 
-type ViewMode = 'list' | 'form-builder' | 'email-templates' | 'jury-assignment' | 'certificates' | 'credentials';
+type ViewMode = 'list' | 'form-builder' | 'email-templates' | 'jury-assignment' | 'certificates' | 'credentials' | 'sessions' | 'attendance';
+type MainTab = 'macro' | 'simple' | 'sessions';
 
 export default function Events() {
-  const [events, setEvents] = useState<Event[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [mainTab, setMainTab] = useState<MainTab>('macro');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [formBuilderType, setFormBuilderType] = useState<'event' | 'user'>('event');
-  const [activeDialogTab, setActiveDialogTab] = useState('basic');
 
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    startDate: '',
-    endDate: '',
-    bannerImageUrl: '',
-    backgroundImageUrl: '',
-    primaryColor: '#1e40af',
-    secondaryColor: '#059669',
-    backgroundColor: '#f0f9ff',
+  // Macro Events
+  const [macroEvents, setMacroEvents] = useState<MacroEvent[]>([]);
+  const [isMacroDialogOpen, setIsMacroDialogOpen] = useState(false);
+  const [editingMacro, setEditingMacro] = useState<MacroEvent | null>(null);
+  const [macroSearch, setMacroSearch] = useState('');
+  const [macroForm, setMacroForm] = useState({
+    name: '', acronym: '', description: '', startDate: '', endDate: '', logoUrl: '',
   });
 
-  useEffect(() => { loadEvents(); }, []);
+  // Simple Events
+  const [events, setEvents] = useState<Event[]>([]);
+  const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [eventSearch, setEventSearch] = useState('');
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [formBuilderType, setFormBuilderType] = useState<'event' | 'user'>('event');
+  const [eventForm, setEventForm] = useState({
+    name: '', nameEn: '', description: '', macroEventId: '',
+    bannerImageUrl: '', backgroundImageUrl: '', primaryColor: '#1e40af', secondaryColor: '#059669', backgroundColor: '#f0f9ff',
+  });
+  const [activeEventTab, setActiveEventTab] = useState('basic');
 
-  const loadEvents = () => {
+  // Sessions
+  const [sessions, setSessions] = useState<EventSession[]>([]);
+  const [isSessionDialogOpen, setIsSessionDialogOpen] = useState(false);
+  const [editingSession, setEditingSession] = useState<EventSession | null>(null);
+  const [sessionEventFilter, setSessionEventFilter] = useState('');
+  const [sessionSearch, setSessionSearch] = useState('');
+  const [sessionForm, setSessionForm] = useState({
+    eventId: '', date: '', startTime: '', endTime: '',
+  });
+
+  // Attendance
+  const [attendanceSession, setAttendanceSession] = useState<EventSession | null>(null);
+  const [attendanceData, setAttendanceData] = useState<SessionAttendance[]>([]);
+
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => { loadAll(); }, []);
+
+  const loadAll = () => {
+    setMacroEvents(db.macroEvents.getAll());
     setEvents(db.events.getAll());
+    setSessions(db.eventSessions.getAll());
     setIsLoading(false);
   };
 
-  const openCreateDialog = () => {
-    setEditingEvent(null);
-    setFormData({
-      name: '',
-      description: '',
-      startDate: '',
-      endDate: '',
-      bannerImageUrl: '',
-      backgroundImageUrl: '',
-      primaryColor: '#1e40af',
-      secondaryColor: '#059669',
-      backgroundColor: '#f0f9ff',
-    });
-    setActiveDialogTab('basic');
-    setIsDialogOpen(true);
+  // ===== MACRO EVENT HANDLERS =====
+  const openCreateMacro = () => {
+    setEditingMacro(null);
+    setMacroForm({ name: '', acronym: '', description: '', startDate: '', endDate: '', logoUrl: '' });
+    setIsMacroDialogOpen(true);
   };
 
-  const openEditDialog = (event: Event) => {
-    setEditingEvent(event);
-    setFormData({
-      name: event.name,
-      description: event.description,
-      startDate: event.startDate,
-      endDate: event.endDate,
-      bannerImageUrl: event.bannerImageUrl,
-      backgroundImageUrl: event.backgroundImageUrl || '',
-      primaryColor: event.primaryColor,
-      secondaryColor: event.secondaryColor,
-      backgroundColor: event.backgroundColor || '#f0f9ff',
+  const openEditMacro = (me: MacroEvent) => {
+    setEditingMacro(me);
+    setMacroForm({
+      name: me.name, acronym: me.acronym, description: me.description,
+      startDate: me.startDate, endDate: me.endDate, logoUrl: me.logoUrl || '',
     });
-    setActiveDialogTab('basic');
-    setIsDialogOpen(true);
+    setIsMacroDialogOpen(true);
   };
 
-  const handleSave = () => {
-    if (!formData.name || !formData.startDate || !formData.endDate) {
-      toast.error('Completa los campos requeridos');
-      return;
+  const handleSaveMacro = () => {
+    if (!macroForm.name || !macroForm.acronym || !macroForm.startDate || !macroForm.endDate) {
+      toast.error('Completa los campos obligatorios'); return;
+    }
+    if (new Date(macroForm.endDate) < new Date(macroForm.startDate)) {
+      toast.error('La fecha de fin no puede ser anterior a la de inicio'); return;
     }
     try {
-      if (editingEvent) {
-        db.events.update(editingEvent.id, formData);
-        toast.success('Evento actualizado');
+      if (editingMacro) {
+        db.macroEvents.update(editingMacro.id, macroForm);
+        toast.success('Macro evento actualizado');
       } else {
-        db.events.create({ ...formData, isActive: true, createdBy: '4' });
-        toast.success('Evento creado');
+        db.macroEvents.create({ ...macroForm, isActive: false });
+        toast.success('Macro evento creado (estado: Inactivo)');
       }
-      setIsDialogOpen(false);
-      loadEvents();
-    } catch {
-      toast.error('Error al guardar');
+      setIsMacroDialogOpen(false);
+      loadAll();
+    } catch (e: any) {
+      toast.error(e.message || 'Error al guardar');
     }
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('¿Eliminar este evento?')) {
-      db.events.delete(id);
+  const handleDeleteMacro = (me: MacroEvent) => {
+    if (me.isActive) { toast.error('Solo se puede eliminar macro eventos inactivos'); return; }
+    if (confirm('¿Eliminar este macro evento?')) {
+      db.macroEvents.delete(me.id);
+      toast.success('Macro evento eliminado');
+      loadAll();
+    }
+  };
+
+  const toggleMacroStatus = (me: MacroEvent) => {
+    db.macroEvents.update(me.id, { isActive: !me.isActive });
+    loadAll();
+  };
+
+  // ===== SIMPLE EVENT HANDLERS =====
+  const openCreateEvent = () => {
+    setEditingEvent(null);
+    setEventForm({
+      name: '', nameEn: '', description: '', macroEventId: '',
+      bannerImageUrl: '', backgroundImageUrl: '', primaryColor: '#1e40af', secondaryColor: '#059669', backgroundColor: '#f0f9ff',
+    });
+    setActiveEventTab('basic');
+    setIsEventDialogOpen(true);
+  };
+
+  const openEditEvent = (event: Event) => {
+    setEditingEvent(event);
+    const sessionsCount = db.eventSessions.getByEvent(event.id).length;
+    setEventForm({
+      name: event.name, nameEn: event.nameEn || '', description: event.description,
+      macroEventId: event.macroEventId,
+      bannerImageUrl: event.bannerImageUrl, backgroundImageUrl: event.backgroundImageUrl || '',
+      primaryColor: event.primaryColor, secondaryColor: event.secondaryColor,
+      backgroundColor: event.backgroundColor || '#f0f9ff',
+    });
+    setActiveEventTab('basic');
+    setIsEventDialogOpen(true);
+  };
+
+  const handleSaveEvent = () => {
+    if (!eventForm.name || !eventForm.nameEn || !eventForm.macroEventId) {
+      toast.error('Completa los campos obligatorios'); return;
+    }
+    const macro = db.macroEvents.getById(eventForm.macroEventId);
+    if (!macro) { toast.error('Macro evento no encontrado'); return; }
+    try {
+      if (editingEvent) {
+        db.events.update(editingEvent.id, {
+          ...eventForm,
+          startDate: macro.startDate, endDate: macro.endDate,
+        });
+        toast.success('Evento simple actualizado');
+      } else {
+        db.events.create({
+          ...eventForm, isActive: false, createdBy: '4',
+          startDate: macro.startDate, endDate: macro.endDate,
+        } as any);
+        toast.success('Evento simple creado (estado: Inactivo)');
+      }
+      setIsEventDialogOpen(false);
+      loadAll();
+    } catch (e: any) {
+      toast.error(e.message || 'Error al guardar');
+    }
+  };
+
+  const handleDeleteEvent = (event: Event) => {
+    if (event.isActive) { toast.error('Solo se puede eliminar eventos inactivos'); return; }
+    if (confirm('¿Eliminar este evento simple?')) {
+      db.events.delete(event.id);
       toast.success('Evento eliminado');
-      loadEvents();
+      loadAll();
     }
   };
 
+  const toggleEventStatus = (event: Event) => {
+    // Can't activate if no sessions
+    if (!event.isActive) {
+      const sesCount = db.eventSessions.getByEvent(event.id).length;
+      if (sesCount === 0) {
+        toast.error('El evento necesita al menos una sesión para activarse');
+        return;
+      }
+    }
+    db.events.update(event.id, { isActive: !event.isActive });
+    loadAll();
+  };
+
+  // ===== SESSION HANDLERS =====
+  const openCreateSession = () => {
+    setEditingSession(null);
+    setSessionForm({ eventId: '', date: '', startTime: '', endTime: '' });
+    setIsSessionDialogOpen(true);
+  };
+
+  const openEditSession = (session: EventSession) => {
+    setEditingSession(session);
+    setSessionForm({
+      eventId: session.eventId, date: session.date,
+      startTime: session.startTime, endTime: session.endTime,
+    });
+    setIsSessionDialogOpen(true);
+  };
+
+  const handleSaveSession = () => {
+    if (!sessionForm.eventId || !sessionForm.date || !sessionForm.startTime || !sessionForm.endTime) {
+      toast.error('Completa todos los campos'); return;
+    }
+    if (sessionForm.endTime <= sessionForm.startTime) {
+      toast.error('La hora de fin debe ser posterior a la de inicio'); return;
+    }
+    // Validate session date within macro event range
+    const event = db.events.getById(sessionForm.eventId);
+    if (event) {
+      const macro = db.macroEvents.getById(event.macroEventId);
+      if (macro) {
+        const sessionDate = new Date(sessionForm.date);
+        const macroStart = new Date(macro.startDate.split('T')[0]);
+        const macroEnd = new Date(macro.endDate.split('T')[0]);
+        if (sessionDate < macroStart || sessionDate > macroEnd) {
+          toast.error('La fecha de la sesión debe estar dentro del rango del macro evento');
+          return;
+        }
+      }
+    }
+    try {
+      if (editingSession) {
+        db.eventSessions.update(editingSession.id, sessionForm);
+        toast.success('Sesión actualizada');
+      } else {
+        db.eventSessions.create({ ...sessionForm, isActive: true });
+        toast.success('Sesión creada');
+      }
+      setIsSessionDialogOpen(false);
+      loadAll();
+    } catch (e: any) {
+      toast.error(e.message || 'Error');
+    }
+  };
+
+  const handleDeleteSession = (session: EventSession) => {
+    if (confirm('¿Eliminar esta sesión? Se eliminará también la asistencia asociada.')) {
+      db.eventSessions.delete(session.id);
+      toast.success('Sesión eliminada');
+      loadAll();
+    }
+  };
+
+  // ===== ATTENDANCE =====
+  const openAttendance = (session: EventSession) => {
+    setAttendanceSession(session);
+    setAttendanceData(db.sessionAttendance.getBySession(session.id));
+    setViewMode('attendance');
+  };
+
+  const toggleAttendance = (userId: string) => {
+    if (!attendanceSession) return;
+    const event = db.events.getById(attendanceSession.eventId);
+    if (!event || !event.isActive) { toast.error('El evento debe estar activo'); return; }
+    if (!attendanceSession.isActive) { toast.error('La sesión debe estar activa'); return; }
+    const existing = attendanceData.find(a => a.userId === userId);
+    const newVal = existing ? !existing.attended : true;
+    db.sessionAttendance.markAttendance(attendanceSession.id, attendanceSession.eventId, userId, newVal);
+    setAttendanceData(db.sessionAttendance.getBySession(attendanceSession.id));
+  };
+
+  // ===== SUB-VIEW HANDLERS =====
   const openFormBuilder = (event: Event, type: 'event' | 'user') => {
-    setSelectedEvent(event);
-    setFormBuilderType(type);
-    setViewMode('form-builder');
+    setSelectedEvent(event); setFormBuilderType(type); setViewMode('form-builder');
   };
-
-  const openEmailTemplates = (event: Event) => {
-    setSelectedEvent(event);
-    setViewMode('email-templates');
-  };
-
-  const openJuryAssignment = (event: Event) => {
-    setSelectedEvent(event);
-    setViewMode('jury-assignment');
-  };
-
-  const openCertificates = (event: Event) => {
-    setSelectedEvent(event);
-    setViewMode('certificates');
-  };
-
-  const openCredentials = (event: Event) => {
-    setSelectedEvent(event);
-    setViewMode('credentials');
-  };
+  const openEmailTemplates = (event: Event) => { setSelectedEvent(event); setViewMode('email-templates'); };
+  const openJuryAssignment = (event: Event) => { setSelectedEvent(event); setViewMode('jury-assignment'); };
+  const openCertificates = (event: Event) => { setSelectedEvent(event); setViewMode('certificates'); };
+  const openCredentials = (event: Event) => { setSelectedEvent(event); setViewMode('credentials'); };
 
   const handleSaveFormFields = (fields: FormField[]) => {
     if (selectedEvent) {
-      if (formBuilderType === 'event') {
-        db.events.updateFormFields(selectedEvent.id, fields);
-      } else {
-        db.events.updateUserFormFields(selectedEvent.id, fields);
-      }
-      loadEvents();
+      if (formBuilderType === 'event') db.events.updateFormFields(selectedEvent.id, fields);
+      else db.events.updateUserFormFields(selectedEvent.id, fields);
+      loadAll();
     }
   };
 
-  const goBackToList = () => {
-    setViewMode('list');
-    setSelectedEvent(null);
-  };
+  const goBackToList = () => { setViewMode('list'); setSelectedEvent(null); setAttendanceSession(null); };
 
-  // Form Builder View
+  // ===== FILTER HELPERS =====
+  const filteredMacros = macroEvents.filter(me =>
+    me.name.toLowerCase().includes(macroSearch.toLowerCase()) ||
+    me.acronym.toLowerCase().includes(macroSearch.toLowerCase())
+  );
+
+  const filteredEvents = events.filter(e =>
+    e.name.toLowerCase().includes(eventSearch.toLowerCase()) ||
+    (e.nameEn || '').toLowerCase().includes(eventSearch.toLowerCase())
+  );
+
+  const filteredSessions = sessions.filter(s => {
+    if (sessionEventFilter && s.eventId !== sessionEventFilter) return false;
+    if (sessionSearch) {
+      const event = db.events.getById(s.eventId);
+      return event?.name.toLowerCase().includes(sessionSearch.toLowerCase()) || s.date.includes(sessionSearch);
+    }
+    return true;
+  });
+
+  const getSimpleEventCount = (macroId: string) => events.filter(e => e.macroEventId === macroId).length;
+  const getSessionCount = (eventId: string) => sessions.filter(s => s.eventId === eventId).length;
+  const getMacroName = (macroId: string) => db.macroEvents.getById(macroId)?.name || 'Sin macro evento';
+  const getEventName = (eventId: string) => db.events.getById(eventId)?.name || 'Sin evento';
+
+  // ===== SPECIAL VIEWS =====
+  if (viewMode === 'attendance' && attendanceSession) {
+    const users = db.users.getAll();
+    const event = db.events.getById(attendanceSession.eventId);
+    const isEditable = attendanceSession.isActive && event?.isActive;
+    return (
+      <DashboardLayout>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-display font-bold">Registro de Asistencia</h1>
+              <p className="text-muted-foreground">
+                {getEventName(attendanceSession.eventId)} — {attendanceSession.date} ({attendanceSession.startTime} - {attendanceSession.endTime})
+              </p>
+            </div>
+            <Button variant="outline" onClick={goBackToList}><ArrowLeft className="h-4 w-4 mr-2" />Volver</Button>
+          </div>
+          {!isEditable && (
+            <div className="bg-muted rounded-lg p-3 text-sm text-muted-foreground">
+              ⚠️ Solo lectura — el evento o la sesión están inactivos.
+            </div>
+          )}
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Participante</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Afiliación</TableHead>
+                  <TableHead className="text-center">Asistió</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.map(user => {
+                  const att = attendanceData.find(a => a.userId === user.id);
+                  return (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">{user.name}</TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>{user.affiliation}</TableCell>
+                      <TableCell className="text-center">
+                        <Checkbox
+                          checked={att?.attended || false}
+                          onCheckedChange={() => isEditable && toggleAttendance(user.id)}
+                          disabled={!isEditable}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   if (viewMode === 'form-builder' && selectedEvent) {
     const updatedEvent = db.events.getById(selectedEvent.id);
     return (
@@ -166,10 +397,7 @@ export default function Events() {
               </h1>
               <p className="text-muted-foreground">{selectedEvent.name}</p>
             </div>
-            <Button variant="outline" onClick={goBackToList}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Volver a Eventos
-            </Button>
+            <Button variant="outline" onClick={goBackToList}><ArrowLeft className="h-4 w-4 mr-2" />Volver a Eventos</Button>
           </div>
           <FormBuilderWithPreview
             eventId={selectedEvent.id}
@@ -183,20 +411,13 @@ export default function Events() {
     );
   }
 
-  // Email Templates View
   if (viewMode === 'email-templates' && selectedEvent) {
     return (
       <DashboardLayout>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-display font-bold">Plantillas de Email</h1>
-              <p className="text-muted-foreground">{selectedEvent.name}</p>
-            </div>
-            <Button variant="outline" onClick={goBackToList}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Volver a Eventos
-            </Button>
+            <div><h1 className="text-2xl font-display font-bold">Plantillas de Email</h1><p className="text-muted-foreground">{selectedEvent.name}</p></div>
+            <Button variant="outline" onClick={goBackToList}><ArrowLeft className="h-4 w-4 mr-2" />Volver</Button>
           </div>
           <EmailTemplateManager event={selectedEvent} />
         </div>
@@ -204,20 +425,13 @@ export default function Events() {
     );
   }
 
-  // Jury Assignment View
   if (viewMode === 'jury-assignment' && selectedEvent) {
     return (
       <DashboardLayout>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-display font-bold">Asignación de Jurados</h1>
-              <p className="text-muted-foreground">{selectedEvent.name}</p>
-            </div>
-            <Button variant="outline" onClick={goBackToList}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Volver a Eventos
-            </Button>
+            <div><h1 className="text-2xl font-display font-bold">Asignación de Jurados</h1><p className="text-muted-foreground">{selectedEvent.name}</p></div>
+            <Button variant="outline" onClick={goBackToList}><ArrowLeft className="h-4 w-4 mr-2" />Volver</Button>
           </div>
           <JuryAssignment event={selectedEvent} />
         </div>
@@ -225,20 +439,13 @@ export default function Events() {
     );
   }
 
-  // Certificates View
   if (viewMode === 'certificates' && selectedEvent) {
     return (
       <DashboardLayout>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-display font-bold">Gestión de Certificados</h1>
-              <p className="text-muted-foreground">{selectedEvent.name}</p>
-            </div>
-            <Button variant="outline" onClick={goBackToList}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Volver a Eventos
-            </Button>
+            <div><h1 className="text-2xl font-display font-bold">Gestión de Certificados</h1><p className="text-muted-foreground">{selectedEvent.name}</p></div>
+            <Button variant="outline" onClick={goBackToList}><ArrowLeft className="h-4 w-4 mr-2" />Volver</Button>
           </div>
           <CertificateManager event={selectedEvent} />
         </div>
@@ -246,20 +453,13 @@ export default function Events() {
     );
   }
 
-  // Credentials View
   if (viewMode === 'credentials' && selectedEvent) {
     return (
       <DashboardLayout>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-display font-bold">Gestión de Credenciales</h1>
-              <p className="text-muted-foreground">{selectedEvent.name}</p>
-            </div>
-            <Button variant="outline" onClick={goBackToList}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Volver a Eventos
-            </Button>
+            <div><h1 className="text-2xl font-display font-bold">Gestión de Credenciales</h1><p className="text-muted-foreground">{selectedEvent.name}</p></div>
+            <Button variant="outline" onClick={goBackToList}><ArrowLeft className="h-4 w-4 mr-2" />Volver</Button>
           </div>
           <CredentialsManager event={selectedEvent} />
         </div>
@@ -267,361 +467,305 @@ export default function Events() {
     );
   }
 
-  // List View
+  // ===== MAIN LIST VIEW =====
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-display font-bold">Gestión de Eventos</h1>
-            <p className="text-muted-foreground mt-1">Administra eventos científicos con formularios personalizados</p>
-          </div>
-          <Button variant="hero" onClick={openCreateDialog}>
-            <Plus className="h-4 w-4" />
-            Nuevo Evento
-          </Button>
+        <div>
+          <h1 className="text-3xl font-display font-bold">Gestión de Eventos</h1>
+          <p className="text-muted-foreground mt-1">Macro eventos, eventos simples y sesiones</p>
         </div>
 
-        {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3].map(i => <div key={i} className="h-72 rounded-xl bg-muted animate-pulse" />)}
-          </div>
-        ) : events.length === 0 ? (
-          <Card className="text-center py-12">
-            <CardContent>
-              <Calendar className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-              <h3 className="text-lg font-semibold mb-2">No hay eventos</h3>
-              <Button variant="hero" onClick={openCreateDialog}>
-                <Plus className="h-4 w-4" />
-                Crear Evento
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {events.map(event => (
-              <Card key={event.id} className="overflow-hidden hover:shadow-lg transition-shadow group">
-                <div className="relative h-40">
-                  <img
-                    src={event.bannerImageUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&h=400&fit=crop'}
-                    alt={event.name}
-                    className="w-full h-full object-cover"
-                  />
-                  <div
-                    className="absolute inset-0"
-                    style={{
-                      background: `linear-gradient(to top, ${event.primaryColor}cc, transparent)`,
-                    }}
-                  />
-                  
-                  {/* Action Buttons */}
-                  <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 bg-white/20 hover:bg-white/30 backdrop-blur-sm"
-                      onClick={() => openFormBuilder(event, 'event')}
-                      title="Formulario de Evento"
-                    >
-                      <Settings2 className="h-4 w-4 text-white" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 bg-white/20 hover:bg-white/30 backdrop-blur-sm"
-                      onClick={() => openFormBuilder(event, 'user')}
-                      title="Formulario de Usuarios"
-                    >
-                      <Users className="h-4 w-4 text-white" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 bg-white/20 hover:bg-white/30 backdrop-blur-sm"
-                      onClick={() => openEmailTemplates(event)}
-                      title="Plantillas de Email"
-                    >
-                      <Mail className="h-4 w-4 text-white" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 bg-white/20 hover:bg-white/30 backdrop-blur-sm"
-                      onClick={() => openJuryAssignment(event)}
-                      title="Asignar Jurados"
-                    >
-                      <Wand2 className="h-4 w-4 text-white" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 bg-white/20 hover:bg-white/30 backdrop-blur-sm"
-                      onClick={() => openCertificates(event)}
-                      title="Certificados"
-                    >
-                      <Award className="h-4 w-4 text-white" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 bg-white/20 hover:bg-white/30 backdrop-blur-sm"
-                      onClick={() => openCredentials(event)}
-                      title="Credenciales"
-                    >
-                      <IdCard className="h-4 w-4 text-white" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 bg-white/20 hover:bg-white/30 backdrop-blur-sm"
-                      onClick={() => openEditDialog(event)}
-                      title="Editar Evento"
-                    >
-                      <Edit className="h-4 w-4 text-white" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 bg-white/20 hover:bg-white/30 backdrop-blur-sm"
-                      onClick={() => handleDelete(event.id)}
-                      title="Eliminar"
-                    >
-                      <Trash2 className="h-4 w-4 text-white" />
-                    </Button>
-                  </div>
+        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as MainTab)}>
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="macro" className="gap-2"><Layers className="h-4 w-4" />Macro Eventos</TabsTrigger>
+            <TabsTrigger value="simple" className="gap-2"><Calendar className="h-4 w-4" />Eventos Simples</TabsTrigger>
+            <TabsTrigger value="sessions" className="gap-2"><Clock className="h-4 w-4" />Sesiones</TabsTrigger>
+          </TabsList>
 
-                  <div className="absolute bottom-3 left-3">
-                    <Badge variant="secondary" className="bg-white/20 text-white backdrop-blur-sm">
-                      {event.isActive ? 'Activo' : 'Inactivo'}
-                    </Badge>
-                  </div>
+          {/* ===== MACRO EVENTS TAB ===== */}
+          <TabsContent value="macro" className="space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Buscar macro eventos..." value={macroSearch} onChange={e => setMacroSearch(e.target.value)} className="pl-9" />
+              </div>
+              <Button variant="hero" onClick={openCreateMacro}><Plus className="h-4 w-4" />Nuevo Macro Evento</Button>
+            </div>
+
+            <Card>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nombre</TableHead>
+                    <TableHead>Siglas</TableHead>
+                    <TableHead>Fecha Inicio</TableHead>
+                    <TableHead>Fecha Fin</TableHead>
+                    <TableHead className="text-center">Eventos Simples</TableHead>
+                    <TableHead className="text-center">Estado</TableHead>
+                    <TableHead>Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredMacros.length === 0 ? (
+                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No hay macro eventos</TableCell></TableRow>
+                  ) : filteredMacros.map(me => (
+                    <TableRow key={me.id}>
+                      <TableCell className="font-medium">{me.name}</TableCell>
+                      <TableCell><Badge variant="outline">{me.acronym}</Badge></TableCell>
+                      <TableCell>{new Date(me.startDate).toLocaleDateString('es-ES')}</TableCell>
+                      <TableCell>{new Date(me.endDate).toLocaleDateString('es-ES')}</TableCell>
+                      <TableCell className="text-center">{getSimpleEventCount(me.id)}</TableCell>
+                      <TableCell className="text-center">
+                        <Switch checked={me.isActive} onCheckedChange={() => toggleMacroStatus(me)} />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => openEditMacro(me)} title="Editar"><Edit className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDeleteMacro(me)} title="Eliminar" disabled={me.isActive}><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          </TabsContent>
+
+          {/* ===== SIMPLE EVENTS TAB ===== */}
+          <TabsContent value="simple" className="space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Buscar eventos..." value={eventSearch} onChange={e => setEventSearch(e.target.value)} className="pl-9" />
+              </div>
+              <Button variant="hero" onClick={openCreateEvent}><Plus className="h-4 w-4" />Nuevo Evento Simple</Button>
+            </div>
+
+            <Card>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nombre (ES)</TableHead>
+                    <TableHead>Nombre (EN)</TableHead>
+                    <TableHead>Macro Evento</TableHead>
+                    <TableHead className="text-center">Sesiones</TableHead>
+                    <TableHead className="text-center">Estado</TableHead>
+                    <TableHead>Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredEvents.length === 0 ? (
+                    <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No hay eventos simples</TableCell></TableRow>
+                  ) : filteredEvents.map(event => (
+                    <TableRow key={event.id}>
+                      <TableCell className="font-medium">{event.name}</TableCell>
+                      <TableCell className="text-muted-foreground">{event.nameEn || '-'}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{getMacroName(event.macroEventId)}</Badge>
+                      </TableCell>
+                      <TableCell className="text-center">{getSessionCount(event.id)}</TableCell>
+                      <TableCell className="text-center">
+                        <Switch checked={event.isActive} onCheckedChange={() => toggleEventStatus(event)} />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1 flex-wrap">
+                          <Button variant="ghost" size="icon" onClick={() => openFormBuilder(event, 'event')} title="Formulario Evento"><Settings2 className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => openFormBuilder(event, 'user')} title="Formulario Usuarios"><Users className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => openEmailTemplates(event)} title="Emails"><Mail className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => openJuryAssignment(event)} title="Jurados"><Wand2 className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => openCertificates(event)} title="Certificados"><Award className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => openCredentials(event)} title="Credenciales"><IdCard className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => openEditEvent(event)} title="Editar"><Edit className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDeleteEvent(event)} title="Eliminar" disabled={event.isActive}><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          </TabsContent>
+
+          {/* ===== SESSIONS TAB ===== */}
+          <TabsContent value="sessions" className="space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex gap-2 flex-1">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input placeholder="Buscar sesiones..." value={sessionSearch} onChange={e => setSessionSearch(e.target.value)} className="pl-9" />
                 </div>
+                <Select value={sessionEventFilter} onValueChange={setSessionEventFilter}>
+                  <SelectTrigger className="w-[200px]"><SelectValue placeholder="Filtrar por evento" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los eventos</SelectItem>
+                    {events.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button variant="hero" onClick={openCreateSession}><Plus className="h-4 w-4" />Nueva Sesión</Button>
+            </div>
 
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg font-display line-clamp-2">{event.name}</CardTitle>
-                  <CardDescription className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    {new Date(event.startDate).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })} -{' '}
-                    {new Date(event.endDate).toLocaleDateString('es-ES', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </CardDescription>
-                </CardHeader>
+            <Card>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Evento Simple</TableHead>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>Hora Inicio</TableHead>
+                    <TableHead>Hora Fin</TableHead>
+                    <TableHead className="text-center">Estado</TableHead>
+                    <TableHead>Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredSessions.length === 0 ? (
+                    <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No hay sesiones</TableCell></TableRow>
+                  ) : filteredSessions.map(session => (
+                    <TableRow key={session.id}>
+                      <TableCell className="font-medium">{getEventName(session.eventId)}</TableCell>
+                      <TableCell>{session.date}</TableCell>
+                      <TableCell>{session.startTime}</TableCell>
+                      <TableCell>{session.endTime}</TableCell>
+                      <TableCell className="text-center">
+                        <Switch checked={session.isActive} onCheckedChange={() => {
+                          db.eventSessions.update(session.id, { isActive: !session.isActive });
+                          loadAll();
+                        }} />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => openAttendance(session)} title="Asistencia"><CheckSquare className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => openEditSession(session)} title="Editar"><Edit className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDeleteSession(session)} title="Eliminar"><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          </TabsContent>
+        </Tabs>
 
-                <CardContent>
-                  <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{event.description}</p>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Users className="h-4 w-4" />
-                      {db.abstracts.getByEvent(event.id).length} trabajos
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <FileText className="h-4 w-4" />
-                      {event.formFields?.length || 0} campos
-                    </span>
-                    <div className="flex items-center gap-1 ml-auto">
-                      <div
-                        className="w-4 h-4 rounded-full border"
-                        style={{ backgroundColor: event.primaryColor }}
-                        title="Color primario"
-                      />
-                      <div
-                        className="w-4 h-4 rounded-full border"
-                        style={{ backgroundColor: event.secondaryColor }}
-                        title="Color secundario"
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+        {/* ===== MACRO EVENT DIALOG ===== */}
+        <Dialog open={isMacroDialogOpen} onOpenChange={setIsMacroDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{editingMacro ? 'Editar Macro Evento' : 'Crear Macro Evento'}</DialogTitle>
+              <DialogDescription>Contenedor principal que agrupa eventos simples</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2"><Label>Nombre *</Label><Input value={macroForm.name} onChange={e => setMacroForm({ ...macroForm, name: e.target.value })} /></div>
+              <div className="space-y-2"><Label>Siglas (único) *</Label><Input value={macroForm.acronym} onChange={e => setMacroForm({ ...macroForm, acronym: e.target.value })} placeholder="Ej: CIB2024" /></div>
+              <div className="space-y-2"><Label>Descripción</Label><Textarea value={macroForm.description} onChange={e => setMacroForm({ ...macroForm, description: e.target.value })} rows={2} /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Fecha/Hora Inicio *</Label><Input type="datetime-local" value={macroForm.startDate} onChange={e => setMacroForm({ ...macroForm, startDate: e.target.value })} /></div>
+                <div className="space-y-2"><Label>Fecha/Hora Fin *</Label><Input type="datetime-local" value={macroForm.endDate} onChange={e => setMacroForm({ ...macroForm, endDate: e.target.value })} /></div>
+              </div>
+              <div className="space-y-2">
+                <Label>Logotipo</Label>
+                <ImageUploader value={macroForm.logoUrl} onChange={url => setMacroForm({ ...macroForm, logoUrl: url })} aspectRatio="square" placeholder="Subir logotipo" />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsMacroDialogOpen(false)}>Cancelar</Button>
+              <Button variant="hero" onClick={handleSaveMacro}>{editingMacro ? 'Actualizar' : 'Crear'}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-        {/* Create/Edit Dialog */}
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        {/* ===== SIMPLE EVENT DIALOG ===== */}
+        <Dialog open={isEventDialogOpen} onOpenChange={setIsEventDialogOpen}>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="font-display">
-                {editingEvent ? 'Editar Evento' : 'Crear Nuevo Evento'}
-              </DialogTitle>
-              <DialogDescription>
-                Configura los detalles del evento, imágenes y colores personalizados
-              </DialogDescription>
+              <DialogTitle>{editingEvent ? 'Editar Evento Simple' : 'Crear Evento Simple'}</DialogTitle>
+              <DialogDescription>Actividad concreta asociada a un macro evento</DialogDescription>
             </DialogHeader>
-
-            <Tabs value={activeDialogTab} onValueChange={setActiveDialogTab}>
+            <Tabs value={activeEventTab} onValueChange={setActiveEventTab}>
               <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="basic" className="gap-2">
-                  <FileText className="h-4 w-4" />
-                  Información
-                </TabsTrigger>
-                <TabsTrigger value="images" className="gap-2">
-                  <Image className="h-4 w-4" />
-                  Imágenes
-                </TabsTrigger>
-                <TabsTrigger value="colors" className="gap-2">
-                  <Palette className="h-4 w-4" />
-                  Colores
-                </TabsTrigger>
+                <TabsTrigger value="basic"><FileText className="h-4 w-4 mr-1" />Información</TabsTrigger>
+                <TabsTrigger value="images"><Image className="h-4 w-4 mr-1" />Imágenes</TabsTrigger>
+                <TabsTrigger value="colors"><Palette className="h-4 w-4 mr-1" />Colores</TabsTrigger>
               </TabsList>
-
               <TabsContent value="basic" className="space-y-4 mt-4">
+                <div className="space-y-2"><Label>Nombre en Español *</Label><Input value={eventForm.name} onChange={e => setEventForm({ ...eventForm, name: e.target.value })} /></div>
+                <div className="space-y-2"><Label>Nombre en Inglés *</Label><Input value={eventForm.nameEn} onChange={e => setEventForm({ ...eventForm, nameEn: e.target.value })} /></div>
+                <div className="space-y-2"><Label>Descripción</Label><Textarea value={eventForm.description} onChange={e => setEventForm({ ...eventForm, description: e.target.value })} rows={2} /></div>
                 <div className="space-y-2">
-                  <Label>Nombre del Evento *</Label>
-                  <Input
-                    placeholder="Congreso Internacional de..."
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Descripción</Label>
-                  <Textarea
-                    placeholder="Descripción del evento..."
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    rows={3}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Fecha de Inicio *</Label>
-                    <Input
-                      type="date"
-                      value={formData.startDate}
-                      onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Fecha de Fin *</Label>
-                    <Input
-                      type="date"
-                      value={formData.endDate}
-                      onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                    />
-                  </div>
+                  <Label>Macro Evento Asociado *</Label>
+                  <Select value={eventForm.macroEventId} onValueChange={v => setEventForm({ ...eventForm, macroEventId: v })}>
+                    <SelectTrigger><SelectValue placeholder="Seleccionar macro evento" /></SelectTrigger>
+                    <SelectContent>
+                      {macroEvents.filter(me => me.isActive).map(me => (
+                        <SelectItem key={me.id} value={me.id}>{me.name} ({me.acronym})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </TabsContent>
-
               <TabsContent value="images" className="space-y-4 mt-4">
                 <div className="space-y-2">
                   <Label>Banner del Evento</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Imagen principal que aparecerá en la cabecera del evento
-                  </p>
-                  <ImageUploader
-                    value={formData.bannerImageUrl}
-                    onChange={(url) => setFormData({ ...formData, bannerImageUrl: url })}
-                    aspectRatio="banner"
-                    placeholder="Arrastra o haz clic para subir el banner"
-                  />
+                  <ImageUploader value={eventForm.bannerImageUrl} onChange={url => setEventForm({ ...eventForm, bannerImageUrl: url })} aspectRatio="banner" placeholder="Subir banner" />
                 </div>
                 <div className="space-y-2">
                   <Label>Imagen de Fondo</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Esta imagen se usará en los emails personalizados
-                  </p>
-                  <ImageUploader
-                    value={formData.backgroundImageUrl}
-                    onChange={(url) => setFormData({ ...formData, backgroundImageUrl: url })}
-                    aspectRatio="banner"
-                    placeholder="Arrastra o haz clic para subir imagen de fondo"
-                  />
+                  <ImageUploader value={eventForm.backgroundImageUrl} onChange={url => setEventForm({ ...eventForm, backgroundImageUrl: url })} aspectRatio="banner" placeholder="Subir fondo" />
                 </div>
               </TabsContent>
-
               <TabsContent value="colors" className="space-y-4 mt-4">
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label>Color Primario</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        type="color"
-                        value={formData.primaryColor}
-                        onChange={(e) => setFormData({ ...formData, primaryColor: e.target.value })}
-                        className="w-12 h-10 p-1 cursor-pointer"
-                      />
-                      <Input
-                        value={formData.primaryColor}
-                        onChange={(e) => setFormData({ ...formData, primaryColor: e.target.value })}
-                        className="flex-1"
-                      />
+                  {(['primaryColor', 'secondaryColor', 'backgroundColor'] as const).map(key => (
+                    <div key={key} className="space-y-2">
+                      <Label>{key === 'primaryColor' ? 'Color Primario' : key === 'secondaryColor' ? 'Color Secundario' : 'Color de Fondo'}</Label>
+                      <div className="flex gap-2">
+                        <Input type="color" value={eventForm[key]} onChange={e => setEventForm({ ...eventForm, [key]: e.target.value })} className="w-12 h-10 p-1 cursor-pointer" />
+                        <Input value={eventForm[key]} onChange={e => setEventForm({ ...eventForm, [key]: e.target.value })} className="flex-1" />
+                      </div>
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Color Secundario</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        type="color"
-                        value={formData.secondaryColor}
-                        onChange={(e) => setFormData({ ...formData, secondaryColor: e.target.value })}
-                        className="w-12 h-10 p-1 cursor-pointer"
-                      />
-                      <Input
-                        value={formData.secondaryColor}
-                        onChange={(e) => setFormData({ ...formData, secondaryColor: e.target.value })}
-                        className="flex-1"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Color de Fondo</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        type="color"
-                        value={formData.backgroundColor}
-                        onChange={(e) => setFormData({ ...formData, backgroundColor: e.target.value })}
-                        className="w-12 h-10 p-1 cursor-pointer"
-                      />
-                      <Input
-                        value={formData.backgroundColor}
-                        onChange={(e) => setFormData({ ...formData, backgroundColor: e.target.value })}
-                        className="flex-1"
-                      />
-                    </div>
-                  </div>
+                  ))}
                 </div>
-
-                {/* Color Preview */}
-                <div className="mt-6">
-                  <Label className="mb-2 block">Vista Previa de Colores</Label>
-                  <div
-                    className="rounded-lg overflow-hidden h-32"
-                    style={{ backgroundColor: formData.backgroundColor }}
-                  >
-                    <div
-                      className="h-16 flex items-center justify-center text-white font-semibold"
-                      style={{
-                        background: `linear-gradient(135deg, ${formData.primaryColor}, ${formData.secondaryColor})`,
-                      }}
-                    >
-                      {formData.name || 'Nombre del Evento'}
-                    </div>
-                    <div className="p-4 flex gap-2">
-                      <button
-                        className="px-4 py-2 rounded text-white text-sm"
-                        style={{ backgroundColor: formData.primaryColor }}
-                      >
-                        Botón Primario
-                      </button>
-                      <button
-                        className="px-4 py-2 rounded text-white text-sm"
-                        style={{ backgroundColor: formData.secondaryColor }}
-                      >
-                        Botón Secundario
-                      </button>
-                    </div>
+                <div className="mt-4 rounded-lg overflow-hidden h-24" style={{ backgroundColor: eventForm.backgroundColor }}>
+                  <div className="h-12 flex items-center justify-center text-white font-semibold" style={{ background: `linear-gradient(135deg, ${eventForm.primaryColor}, ${eventForm.secondaryColor})` }}>
+                    {eventForm.name || 'Vista previa'}
                   </div>
                 </div>
               </TabsContent>
             </Tabs>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEventDialogOpen(false)}>Cancelar</Button>
+              <Button variant="hero" onClick={handleSaveEvent}>{editingEvent ? 'Actualizar' : 'Crear'}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-            <DialogFooter className="mt-6">
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button variant="hero" onClick={handleSave}>
-                {editingEvent ? 'Actualizar' : 'Crear Evento'}
-              </Button>
+        {/* ===== SESSION DIALOG ===== */}
+        <Dialog open={isSessionDialogOpen} onOpenChange={setIsSessionDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>{editingSession ? 'Editar Sesión' : 'Crear Sesión'}</DialogTitle>
+              <DialogDescription>Ocurrencia temporal de un evento simple</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Evento Simple *</Label>
+                <Select value={sessionForm.eventId} onValueChange={v => setSessionForm({ ...sessionForm, eventId: v })} disabled={!!editingSession}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar evento" /></SelectTrigger>
+                  <SelectContent>
+                    {events.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2"><Label>Fecha *</Label><Input type="date" value={sessionForm.date} onChange={e => setSessionForm({ ...sessionForm, date: e.target.value })} /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Hora Inicio *</Label><Input type="time" value={sessionForm.startTime} onChange={e => setSessionForm({ ...sessionForm, startTime: e.target.value })} /></div>
+                <div className="space-y-2"><Label>Hora Fin *</Label><Input type="time" value={sessionForm.endTime} onChange={e => setSessionForm({ ...sessionForm, endTime: e.target.value })} /></div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsSessionDialogOpen(false)}>Cancelar</Button>
+              <Button variant="hero" onClick={handleSaveSession}>{editingSession ? 'Actualizar' : 'Crear'}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
