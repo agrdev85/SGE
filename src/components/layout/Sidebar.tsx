@@ -11,6 +11,13 @@ import {
   LogOut,
   ChevronLeft,
   Beaker,
+  CalendarDays,
+  CalendarCheck,
+  Layout as LayoutIcon,
+  Newspaper,
+  Menu,
+  Shield,
+  Package,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
@@ -27,8 +34,16 @@ const navItems: NavItem[] = [
   { label: 'Mis Resúmenes', icon: FileText, href: '/abstracts', roles: ['USER'] },
   { label: 'Revisar', icon: ClipboardCheck, href: '/review', roles: ['REVIEWER'] },
   { label: 'Comité', icon: Users, href: '/committee', roles: ['COMMITTEE', 'ADMIN'] },
+  { label: 'Programa', icon: CalendarDays, href: '/program', roles: ['COMMITTEE', 'ADMIN'] },
+  { label: 'Mi Programa', icon: CalendarCheck, href: '/my-program', roles: ['USER', 'REVIEWER'] },
   { label: 'Eventos', icon: Calendar, href: '/events', roles: ['ADMIN'] },
   { label: 'Usuarios', icon: Users, href: '/users', roles: ['ADMIN'] },
+  // CMS Menu Items
+  { label: 'Páginas CMS', icon: LayoutIcon, href: '/cms/pages', roles: ['ADMIN'] },
+  { label: 'Artículos', icon: Newspaper, href: '/cms/articles', roles: ['ADMIN'] },
+  { label: 'Menús', icon: Menu, href: '/cms/menus', roles: ['ADMIN'] },
+  { label: 'Widgets', icon: Package, href: '/cms/widgets', roles: ['ADMIN'] },
+  { label: 'SuperAdmin', icon: Shield, href: '/superadmin', roles: ['ADMIN'] },
   { label: 'Configuración', icon: Settings, href: '/settings', roles: ['USER', 'REVIEWER', 'COMMITTEE', 'ADMIN'] },
 ];
 

@@ -17,7 +17,20 @@ import Committee from "./pages/Committee";
 import Events from "./pages/Events";
 import Users from "./pages/Users";
 import Settings from "./pages/Settings";
+import ProgramManager from "./pages/ProgramManager";
+import MyProgram from "./pages/MyProgram";
 import NotFound from "./pages/NotFound";
+// CMS Imports
+import CMSPagesManager from "./pages/CMSPagesManager";
+import CMSArticlesManager from "./pages/CMSArticlesManager";
+import CMSMenuManager from "./pages/CMSMenuManager";
+import CMSWidgetsManager from "./pages/CMSWidgetsManager";
+import SuperAdminPanel from "./pages/SuperAdminPanel";
+// Public CMS Pages
+import PublicPage from "./pages/PublicPage";
+import PublicArticle from "./pages/PublicArticle";
+import PublicBlog from "./pages/PublicBlog";
+import PublicCategory from "./pages/PublicCategory";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +55,22 @@ const App = () => (
             <Route path="/events" element={<Events />} />
             <Route path="/users" element={<Users />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/program" element={<ProgramManager />} />
+            <Route path="/my-program" element={<MyProgram />} />
+            
+            {/* CMS Routes */}
+            <Route path="/cms/pages" element={<CMSPagesManager />} />
+            <Route path="/cms/articles" element={<CMSArticlesManager />} />
+            <Route path="/cms/menus" element={<CMSMenuManager />} />
+            <Route path="/cms/widgets" element={<CMSWidgetsManager />} />
+            <Route path="/superadmin" element={<SuperAdminPanel />} />
+            
+            {/* Public CMS Routes */}
+            <Route path="/pagina/:slug" element={<PublicPage />} />
+            <Route path="/articulo/:slug" element={<PublicArticle />} />
+            <Route path="/blog" element={<PublicBlog />} />
+            <Route path="/categoria/:slug" element={<PublicCategory />} />
+            
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

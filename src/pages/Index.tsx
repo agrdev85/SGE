@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { db, Event } from '@/lib/database';
+import { db, Event, CMSArticle, CMSSettings } from '@/lib/database';
+import PublicHeader from '@/components/PublicHeader';
 import { 
   Beaker, 
   ArrowRight, 
@@ -14,7 +15,8 @@ import {
   Award,
   Globe,
   Zap,
-  MapPin
+  MapPin,
+  Newspaper
 } from 'lucide-react';
 
 const features = [
@@ -49,51 +51,27 @@ const stats = [
 
 export default function Index() {
   const [events, setEvents] = useState<Event[]>([]);
+  const [articles, setArticles] = useState<CMSArticle[]>([]);
+  const [settings, setSettings] = useState<CMSSettings | null>(null);
 
   useEffect(() => {
     db.init();
     const activeEvents = db.events.getAll().filter(e => e.isActive);
     setEvents(activeEvents);
+    
+    // Load CMS content
+    const featuredArticles = db.cmsArticles.getFeatured();
+    setArticles(featuredArticles);
+    setSettings(db.cmsSettings.get() || null);
   }, []);
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-primary shadow-glow-sm">
-              <Beaker className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="font-display font-bold text-xl">SciEvent</span>
-          </Link>
-          <nav className="hidden md:flex items-center gap-8">
-            <a href="#features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-              Características
-            </a>
-            <a href="#events" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-              Eventos
-            </a>
-            <a href="#about" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-              Nosotros
-            </a>
-          </nav>
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" asChild>
-              <Link to="/login">Iniciar Sesión</Link>
-            </Button>
-            <Button variant="hero" asChild>
-              <Link to="/register">
-                Registrarse
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </header>
+      {/* CMS Header */}
+      <PublicHeader location="header" />
 
       {/* Hero Section */}
-      <section className="relative pt-32 pb-20 overflow-hidden">
+      <section className="relative pt-20 pb-20 overflow-hidden">
         <div className="absolute inset-0 gradient-hero opacity-5" />
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-4xl mx-auto text-center animate-slide-up">
@@ -304,22 +282,70 @@ export default function Index() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="py-12 bg-muted/50 border-t border-border">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-primary">
-                <Beaker className="h-5 w-5 text-primary-foreground" />
-              </div>
-              <span className="font-display font-bold">SciEvent</span>
+      {/* Featured Articles Section */}
+      {articles.length > 0 && (
+        <section className="py-20 bg-gray-50">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-12">
+              <Badge variant="secondary" className="mb-4">
+                <Newspaper className="w-4 h-4 mr-2" />
+                Noticias y Artículos
+              </Badge>
+              <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                Últimas Publicaciones
+              </h2>
+              <p className="text-muted-foreground max-w-2xl mx-auto">
+                Mantente informado con nuestras últimas noticias, artículos y actualizaciones
+              </p>
             </div>
-            <p className="text-sm text-muted-foreground">
-              © 2024 SciEvent. Sistema de Gestión de Eventos Científicos.
-            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              {articles.slice(0, 3).map(article => (
+                <Link key={article.id} to={`/articulo/${article.slug}`}>
+                  <Card className="h-full hover:shadow-lg transition cursor-pointer">
+                    {article.featuredImage && (
+                      <img
+                        src={article.featuredImage}
+                        alt={article.title}
+                        className="w-full h-48 object-cover rounded-t-lg"
+                      />
+                    )}
+                    <CardContent className="pt-6">
+                      <Badge variant="secondary" className="mb-3">Destacado</Badge>
+                      <h3 className="font-bold text-xl mb-2 line-clamp-2">
+                        {article.title}
+                      </h3>
+                      {article.excerpt && (
+                        <p className="text-gray-600 text-sm line-clamp-3 mb-4">
+                          {article.excerpt}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between text-sm text-gray-500">
+                        <span>{new Date(article.publishedAt || article.createdAt).toLocaleDateString()}</span>
+                        <span className="flex items-center gap-1">
+                          {article.views} vistas
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+
+            <div className="text-center">
+              <Button variant="outline" size="lg" asChild>
+                <Link to="/blog">
+                  Ver Todos los Artículos
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Link>
+              </Button>
+            </div>
           </div>
-        </div>
-      </footer>
+        </section>
+      )}
+
+      {/* Footer */}
+      <PublicHeader location="footer" />
     </div>
   );
 }

@@ -16,7 +16,16 @@ export interface User {
   isActive: boolean;
   avatar?: string;
   phone?: string;
+  idDocument?: string;
+  affiliationType?: string;
+  economicSector?: string;
+  participationType?: string;
+  scientificLevel?: string;
+  educationalLevel?: string;
+  gender?: string;
   specialization?: string;
+  reviewerThematics?: string[]; // Temáticas que puede revisar
+  isParticipant?: boolean; // Indica si también es participante registrado
 }
 
 export interface Event {
@@ -66,20 +75,82 @@ export type FieldType =
 
 export type AbstractStatus = 'EN_PROCESO' | 'APROBADO' | 'APROBADO_CON_CAMBIOS' | 'RECHAZADO';
 
-export interface Abstract {
+export interface Author {
+  id: string;
+  name: string;
+  email?: string;
+  affiliation?: string;
+  isMainAuthor: boolean;
+}
+
+export interface CommitteeMember {
   id: string;
   userId: string;
+  eventId: string;
+  role: 'COORDINADOR' | 'COORDINADOR_CIENTIFICO' | 'RESPONSABLE_ASIGNACIONES' | 'MIEMBRO';
+  thematic?: string; // Temática asignada si es revisor
+  assignedAt: string;
+}
+
+export interface Thematic {
+  id: string;
+  eventId: string;
+  name: string;
+  description?: string;
+  duration: number; // Duración en minutos para ponencias de esta temática
+  createdAt: string;
+}
+
+export interface WorkAssignment {
+  id: string;
+  abstractId: string;
+  reviewerId: string;
+  assignedBy: string;
+  assignedAt: string;
+  status: 'pending' | 'in_review' | 'completed';
+}
+
+export interface ProgramSession {
+  id: string;
+  eventId: string;
+  title: string;
+  thematicId?: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  location: string;
+  type: 'CONFERENCIA' | 'SESION_ORAL' | 'POSTER' | 'PLENARIA' | 'BREAK';
+  abstracts: string[]; // IDs de abstracts
+  moderator?: string;
+  orderIndex: number;
+}
+
+export interface DelegateProgram {
+  id: string;
+  userId: string;
+  eventId: string;
+  sessionIds: string[]; // IDs de sesiones seleccionadas
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Abstract {
+  id: string;
+  userId: string; // Usuario que subió el trabajo
   eventId: string;
   title: string;
   summaryText: string;
   keywords: string[];
-  authors: string[];
+  authors: Author[]; // Lista de autores con autor principal
+  mainAuthorId: string; // ID del autor principal
   status: AbstractStatus;
   version: number;
   createdAt: string;
   updatedAt: string;
   categoryType?: 'Ponencia' | 'Poster' | 'Conferencia';
-  assignedReviewers?: string[];
+  thematicId?: string; // Temática asignada
+  assignedReviewerId?: string; // Árbitro específico asignado
+  sessionId?: string; // Sesión del programa donde está incluido
 }
 
 export interface Review {
@@ -130,6 +201,126 @@ export interface JuryAssignment {
   abstractId: string;
   assignedAt: string;
   status: 'pending' | 'completed';
+}
+
+// CMS Types
+export interface CMSPage {
+  id: string;
+  title: string;
+  slug: string;
+  content: string; // HTML content
+  excerpt?: string;
+  featuredImage?: string;
+  status: 'draft' | 'published' | 'archived';
+  author: string; // User ID
+  createdAt: string;
+  updatedAt: string;
+  publishedAt?: string;
+  metaTitle?: string;
+  metaDescription?: string;
+  template?: 'default' | 'landing' | 'full-width' | 'sidebar';
+  orderIndex?: number;
+}
+
+export interface CMSArticle {
+  id: string;
+  title: string;
+  slug: string;
+  content: string; // HTML content
+  excerpt?: string;
+  featuredImage?: string;
+  categoryId?: string;
+  tags: string[];
+  status: 'draft' | 'published' | 'archived';
+  author: string; // User ID
+  createdAt: string;
+  updatedAt: string;
+  publishedAt?: string;
+  metaTitle?: string;
+  metaDescription?: string;
+  views: number;
+  featured: boolean;
+}
+
+export interface CMSCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  parentId?: string; // For nested categories
+  orderIndex: number;
+  createdAt: string;
+}
+
+export interface CMSMenu {
+  id: string;
+  name: string;
+  location: 'header' | 'footer' | 'sidebar' | 'custom';
+  items: CMSMenuItem[];
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CMSMenuItem {
+  id: string;
+  label: string;
+  type: 'page' | 'article' | 'category' | 'custom' | 'external';
+  url?: string; // For custom/external links
+  pageId?: string;
+  articleId?: string;
+  categoryId?: string;
+  parentId?: string; // For nested menu items
+  orderIndex: number;
+  openInNewTab: boolean;
+  cssClass?: string;
+  icon?: string;
+}
+
+export interface CMSWidget {
+  id: string;
+  name: string;
+  type: 'text' | 'html' | 'recent-articles' | 'categories' | 'search' | 'custom';
+  content?: string;
+  location: 'sidebar' | 'footer' | 'header';
+  settings?: Record<string, any>;
+  isActive: boolean;
+  orderIndex: number;
+}
+
+export interface CMSSettings {
+  id: string;
+  siteName: string;
+  siteDescription: string;
+  logo?: string;
+  favicon?: string;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  fontFamily: string;
+  headerStyle: 'default' | 'centered' | 'minimal' | 'mega';
+  footerStyle: 'default' | 'minimal' | 'extended';
+  socialLinks: {
+    facebook?: string;
+    twitter?: string;
+    linkedin?: string;
+    instagram?: string;
+    youtube?: string;
+  };
+  contactInfo: {
+    email?: string;
+    phone?: string;
+    address?: string;
+  };
+  seoSettings: {
+    defaultMetaTitle?: string;
+    defaultMetaDescription?: string;
+    googleAnalytics?: string;
+    googleSiteVerification?: string;
+  };
+  maintenanceMode: boolean;
+  allowRegistration: boolean;
+  moderateComments: boolean;
 }
 
 // Database class
@@ -286,7 +477,11 @@ class Database {
         title: 'Nuevos avances en terapia génica para enfermedades raras',
         summaryText: 'Este trabajo presenta los últimos avances en el desarrollo de vectores virales para terapia génica.',
         keywords: ['terapia génica', 'vectores virales', 'enfermedades raras'],
-        authors: ['Dr. María García', 'Dr. Juan Pérez'],
+        authors: [
+          { id: 'a1', name: 'Dr. María García', email: 'maria@example.com', affiliation: 'Universidad de La Habana', isMainAuthor: true },
+          { id: 'a2', name: 'Dr. Juan Pérez', email: 'juan@example.com', affiliation: 'CIGB', isMainAuthor: false },
+        ],
+        mainAuthorId: 'a1',
         status: 'EN_PROCESO',
         version: 1,
         createdAt: '2024-03-01',
@@ -299,12 +494,17 @@ class Database {
         title: 'Desarrollo de vacunas de nueva generación contra COVID-19',
         summaryText: 'Presentamos el desarrollo de una vacuna basada en ARNm de tercera generación.',
         keywords: ['vacunas', 'ARNm', 'COVID-19'],
-        authors: ['Dr. María García', 'Dra. Laura Sánchez'],
+        authors: [
+          { id: 'a3', name: 'Dr. María García', email: 'maria@example.com', affiliation: 'Universidad de La Habana', isMainAuthor: true },
+          { id: 'a4', name: 'Dra. Laura Sánchez', email: 'laura@example.com', affiliation: 'CSIC', isMainAuthor: false },
+        ],
+        mainAuthorId: 'a3',
         status: 'APROBADO',
         version: 1,
         createdAt: '2024-02-15',
         updatedAt: '2024-02-28',
         categoryType: 'Ponencia',
+        thematicId: 't2',
       },
       {
         id: '3',
@@ -313,11 +513,15 @@ class Database {
         title: 'Bioinformática aplicada al diseño de fármacos',
         summaryText: 'Utilizando técnicas de inteligencia artificial para acelerar el descubrimiento de nuevos fármacos.',
         keywords: ['bioinformática', 'IA', 'diseño de fármacos'],
-        authors: ['Dr. María García'],
+        authors: [
+          { id: 'a5', name: 'Dr. María García', email: 'maria@example.com', affiliation: 'Universidad de La Habana', isMainAuthor: true },
+        ],
+        mainAuthorId: 'a5',
         status: 'EN_PROCESO',
         version: 1,
         createdAt: '2024-02-20',
         updatedAt: '2024-02-20',
+        thematicId: 't3',
       },
       {
         id: '4',
@@ -326,11 +530,16 @@ class Database {
         title: 'Nanotecnología en sistemas de liberación de fármacos',
         summaryText: 'Desarrollo de nanopartículas para la entrega dirigida de medicamentos.',
         keywords: ['nanotecnología', 'drug delivery', 'nanopartículas'],
-        authors: ['Dr. María García', 'Dr. Pedro López'],
+        authors: [
+          { id: 'a6', name: 'Dr. Pedro López', email: 'pedro@example.com', affiliation: 'UNAM', isMainAuthor: true },
+          { id: 'a7', name: 'Dr. María García', email: 'maria@example.com', affiliation: 'Universidad de La Habana', isMainAuthor: false },
+        ],
+        mainAuthorId: 'a6',
         status: 'EN_PROCESO',
         version: 1,
         createdAt: '2024-02-25',
         updatedAt: '2024-02-25',
+        thematicId: 't5',
       },
     ];
     this.setCollection('abstracts', abstracts);
@@ -442,6 +651,25 @@ class Database {
       },
     ];
     this.setCollection('emailTemplates', emailTemplates);
+
+    // Seed Thematics
+    const thematics: Thematic[] = [
+      { id: 't1', eventId: '1', name: 'Biotecnología Molecular', description: 'Técnicas moleculares y genómica', duration: 20, createdAt: '2024-01-01' },
+      { id: 't2', eventId: '1', name: 'Inmunología', description: 'Sistemas inmunológicos y vacunas', duration: 20, createdAt: '2024-01-01' },
+      { id: 't3', eventId: '1', name: 'Bioinformática', description: 'Análisis computacional en biología', duration: 15, createdAt: '2024-01-01' },
+      { id: 't4', eventId: '1', name: 'Farmacología', description: 'Desarrollo y diseño de fármacos', duration: 20, createdAt: '2024-01-01' },
+      { id: 't5', eventId: '1', name: 'Nanotecnología', description: 'Aplicaciones nano en biotecnología', duration: 15, createdAt: '2024-01-01' },
+    ];
+    this.setCollection('thematics', thematics);
+
+    // Seed Committee Members
+    const committeeMembers: CommitteeMember[] = [
+      { id: 'cm1', userId: '3', eventId: '1', role: 'COORDINADOR', assignedAt: '2024-01-01' },
+      { id: 'cm2', userId: '2', eventId: '1', role: 'RESPONSABLE_ASIGNACIONES', thematic: 't2', assignedAt: '2024-01-02' },
+      { id: 'cm3', userId: '5', eventId: '1', role: 'MIEMBRO', thematic: 't3', assignedAt: '2024-01-03' },
+      { id: 'cm4', userId: '6', eventId: '1', role: 'MIEMBRO', thematic: 't2', assignedAt: '2024-01-04' },
+    ];
+    this.setCollection('committeeMembers', committeeMembers);
   }
 
   // USERS CRUD
@@ -820,6 +1048,389 @@ class Database {
     },
   };
 
+  // THEMATICS
+  thematics = {
+    getAll: (): Thematic[] => this.getCollection<Thematic>('thematics'),
+    
+    getByEvent: (eventId: string): Thematic[] =>
+      this.getCollection<Thematic>('thematics').filter(t => t.eventId === eventId),
+    
+    getById: (id: string): Thematic | undefined =>
+      this.getCollection<Thematic>('thematics').find(t => t.id === id),
+    
+    create: (data: Omit<Thematic, 'id'>): Thematic => {
+      const thematics = this.getCollection<Thematic>('thematics');
+      const newThematic: Thematic = { ...data, id: this.generateId(), createdAt: new Date().toISOString() };
+      thematics.push(newThematic);
+      this.setCollection('thematics', thematics);
+      return newThematic;
+    },
+    
+    update: (id: string, data: Partial<Thematic>): Thematic | undefined => {
+      const thematics = this.getCollection<Thematic>('thematics');
+      const index = thematics.findIndex(t => t.id === id);
+      if (index !== -1) {
+        thematics[index] = { ...thematics[index], ...data };
+        this.setCollection('thematics', thematics);
+        return thematics[index];
+      }
+      return undefined;
+    },
+    
+    delete: (id: string): boolean => {
+      const thematics = this.getCollection<Thematic>('thematics').filter(t => t.id !== id);
+      this.setCollection('thematics', thematics);
+      return true;
+    },
+  };
+
+  // COMMITTEE MEMBERS
+  committeeMembers = {
+    getAll: (): CommitteeMember[] => this.getCollection<CommitteeMember>('committeeMembers'),
+    
+    getByEvent: (eventId: string): CommitteeMember[] =>
+      this.getCollection<CommitteeMember>('committeeMembers').filter(cm => cm.eventId === eventId),
+    
+    getByUser: (userId: string): CommitteeMember[] =>
+      this.getCollection<CommitteeMember>('committeeMembers').filter(cm => cm.userId === userId),
+    
+    getByRole: (eventId: string, role: CommitteeMember['role']): CommitteeMember[] =>
+      this.getCollection<CommitteeMember>('committeeMembers').filter(cm => cm.eventId === eventId && cm.role === role),
+    
+    create: (data: Omit<CommitteeMember, 'id'>): CommitteeMember => {
+      const members = this.getCollection<CommitteeMember>('committeeMembers');
+      const newMember: CommitteeMember = { ...data, id: this.generateId(), assignedAt: new Date().toISOString() };
+      members.push(newMember);
+      this.setCollection('committeeMembers', members);
+      
+      // Update user role if needed
+      const user = this.users.getById(data.userId);
+      if (user && user.role === 'USER') {
+        this.users.update(data.userId, { role: 'COMMITTEE' });
+      }
+      
+      return newMember;
+    },
+    
+    delete: (id: string): boolean => {
+      const members = this.getCollection<CommitteeMember>('committeeMembers').filter(cm => cm.id !== id);
+      this.setCollection('committeeMembers', members);
+      return true;
+    },
+  };
+
+  // WORK ASSIGNMENTS (Asignaciones específicas de trabajos a árbitros)
+  workAssignments = {
+    getAll: (): WorkAssignment[] => this.getCollection<WorkAssignment>('workAssignments'),
+    
+    getByAbstract: (abstractId: string): WorkAssignment | undefined =>
+      this.getCollection<WorkAssignment>('workAssignments').find(wa => wa.abstractId === abstractId),
+    
+    getByReviewer: (reviewerId: string): WorkAssignment[] =>
+      this.getCollection<WorkAssignment>('workAssignments').filter(wa => wa.reviewerId === reviewerId),
+    
+    create: (data: Omit<WorkAssignment, 'id'>): WorkAssignment => {
+      const assignments = this.getCollection<WorkAssignment>('workAssignments');
+      
+      // Check if abstract is already assigned
+      const existing = assignments.find(wa => wa.abstractId === data.abstractId);
+      if (existing) {
+        throw new Error('Este trabajo ya está asignado a otro árbitro');
+      }
+      
+      const newAssignment: WorkAssignment = { 
+        ...data, 
+        id: this.generateId(), 
+        assignedAt: new Date().toISOString(),
+        status: 'pending'
+      };
+      assignments.push(newAssignment);
+      this.setCollection('workAssignments', assignments);
+      
+      // Update abstract with assigned reviewer
+      this.abstracts.update(data.abstractId, { assignedReviewerId: data.reviewerId });
+      
+      // Create notification
+      this.notifications.create({
+        userId: data.reviewerId,
+        type: 'review_assigned',
+        title: 'Nuevo trabajo asignado',
+        message: 'Se te ha asignado un nuevo trabajo para revisar.',
+        link: '/review',
+      });
+      
+      return newAssignment;
+    },
+    
+    reassign: (abstractId: string, newReviewerId: string, assignedBy: string): WorkAssignment => {
+      const assignments = this.getCollection<WorkAssignment>('workAssignments');
+      const index = assignments.findIndex(wa => wa.abstractId === abstractId);
+      
+      if (index !== -1) {
+        const oldReviewerId = assignments[index].reviewerId;
+        assignments[index] = {
+          ...assignments[index],
+          reviewerId: newReviewerId,
+          assignedBy,
+          assignedAt: new Date().toISOString(),
+          status: 'pending'
+        };
+        this.setCollection('workAssignments', assignments);
+        
+        // Update abstract
+        this.abstracts.update(abstractId, { assignedReviewerId: newReviewerId });
+        
+        // Notifications
+        this.notifications.create({
+          userId: newReviewerId,
+          type: 'review_assigned',
+          title: 'Nuevo trabajo asignado',
+          message: 'Se te ha asignado un trabajo para revisar.',
+          link: '/review',
+        });
+        
+        this.notifications.create({
+          userId: oldReviewerId,
+          type: 'system',
+          title: 'Trabajo reasignado',
+          message: 'Un trabajo que tenías asignado ha sido reasignado a otro árbitro.',
+        });
+        
+        return assignments[index];
+      }
+      
+      // If not found, create new assignment
+      return this.workAssignments.create({
+        abstractId,
+        reviewerId: newReviewerId,
+        assignedBy,
+        assignedAt: new Date().toISOString(),
+        status: 'pending',
+      });
+    },
+    
+    delete: (id: string): boolean => {
+      const assignment = this.getCollection<WorkAssignment>('workAssignments').find(wa => wa.id === id);
+      if (assignment) {
+        this.abstracts.update(assignment.abstractId, { assignedReviewerId: undefined });
+      }
+      const assignments = this.getCollection<WorkAssignment>('workAssignments').filter(wa => wa.id !== id);
+      this.setCollection('workAssignments', assignments);
+      return true;
+    },
+  };
+
+  // PROGRAM SESSIONS
+  programSessions = {
+    getAll: (): ProgramSession[] => this.getCollection<ProgramSession>('programSessions'),
+    
+    getByEvent: (eventId: string): ProgramSession[] =>
+      this.getCollection<ProgramSession>('programSessions')
+        .filter(ps => ps.eventId === eventId)
+        .sort((a, b) => {
+          const dateComp = a.date.localeCompare(b.date);
+          if (dateComp !== 0) return dateComp;
+          return a.startTime.localeCompare(b.startTime);
+        }),
+    
+    getById: (id: string): ProgramSession | undefined =>
+      this.getCollection<ProgramSession>('programSessions').find(ps => ps.id === id),
+    
+    create: (data: Omit<ProgramSession, 'id'>): ProgramSession => {
+      const sessions = this.getCollection<ProgramSession>('programSessions');
+      const newSession: ProgramSession = { ...data, id: this.generateId() };
+      sessions.push(newSession);
+      this.setCollection('programSessions', sessions);
+      return newSession;
+    },
+    
+    update: (id: string, data: Partial<ProgramSession>): ProgramSession | undefined => {
+      const sessions = this.getCollection<ProgramSession>('programSessions');
+      const index = sessions.findIndex(ps => ps.id === id);
+      if (index !== -1) {
+        sessions[index] = { ...sessions[index], ...data };
+        this.setCollection('programSessions', sessions);
+        return sessions[index];
+      }
+      return undefined;
+    },
+    
+    delete: (id: string): boolean => {
+      const sessions = this.getCollection<ProgramSession>('programSessions').filter(ps => ps.id !== id);
+      this.setCollection('programSessions', sessions);
+      return true;
+    },
+    
+    addAbstract: (sessionId: string, abstractId: string): ProgramSession | undefined => {
+      const sessions = this.getCollection<ProgramSession>('programSessions');
+      const session = sessions.find(ps => ps.id === sessionId);
+      if (session && !session.abstracts.includes(abstractId)) {
+        session.abstracts.push(abstractId);
+        this.setCollection('programSessions', sessions);
+        
+        // Update abstract with session
+        this.abstracts.update(abstractId, { sessionId });
+        
+        return session;
+      }
+      return undefined;
+    },
+    
+    removeAbstract: (sessionId: string, abstractId: string): ProgramSession | undefined => {
+      const sessions = this.getCollection<ProgramSession>('programSessions');
+      const session = sessions.find(ps => ps.id === sessionId);
+      if (session) {
+        session.abstracts = session.abstracts.filter(id => id !== abstractId);
+        this.setCollection('programSessions', sessions);
+        
+        // Update abstract
+        this.abstracts.update(abstractId, { sessionId: undefined });
+        
+        return session;
+      }
+      return undefined;
+    },
+    
+    // Generate program proposal from approved abstracts
+    generateProposal: (eventId: string): ProgramSession[] => {
+      const event = this.events.getById(eventId);
+      if (!event) throw new Error('Evento no encontrado');
+      
+      const approvedAbstracts = this.abstracts.getApproved(eventId);
+      const thematics = this.thematics.getByEvent(eventId);
+      
+      // Delete existing sessions
+      const existingSessions = this.programSessions.getByEvent(eventId);
+      existingSessions.forEach(s => this.programSessions.delete(s.id));
+      
+      const sessions: ProgramSession[] = [];
+      const startDate = new Date(event.startDate);
+      const endDate = new Date(event.endDate);
+      const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      
+      let orderIndex = 0;
+      
+      // Group abstracts by thematic
+      const abstractsByThematic = new Map<string, Abstract[]>();
+      approvedAbstracts.forEach(abstract => {
+        const key = abstract.thematicId || 'sin-tematica';
+        if (!abstractsByThematic.has(key)) {
+          abstractsByThematic.set(key, []);
+        }
+        abstractsByThematic.get(key)!.push(abstract);
+      });
+      
+      // Create sessions for each day
+      for (let day = 0; day < days; day++) {
+        const currentDate = new Date(startDate);
+        currentDate.setDate(startDate.getDate() + day);
+        const dateStr = currentDate.toISOString().split('T')[0];
+        
+        // Morning session (9:00 - 12:00)
+        let sessionIndex = 0;
+        abstractsByThematic.forEach((abstracts, thematicId) => {
+          if (abstracts.length === 0) return;
+          
+          const thematic = thematics.find(t => t.id === thematicId);
+          const abstractsForSession = abstracts.splice(0, Math.min(6, abstracts.length));
+          
+          if (abstractsForSession.length > 0) {
+            const session = this.programSessions.create({
+              eventId,
+              title: thematic ? `Sesión: ${thematic.name}` : 'Sesión General',
+              thematicId: thematic?.id,
+              date: dateStr,
+              startTime: sessionIndex === 0 ? '09:00' : '14:00',
+              endTime: sessionIndex === 0 ? '12:00' : '17:00',
+              location: `Sala ${String.fromCharCode(65 + sessionIndex)}`,
+              type: 'SESION_ORAL',
+              abstracts: abstractsForSession.map(a => a.id),
+              orderIndex: orderIndex++,
+            });
+            
+            sessions.push(session);
+            
+            // Update abstracts with session
+            abstractsForSession.forEach(a => {
+              this.abstracts.update(a.id, { sessionId: session.id });
+            });
+            
+            sessionIndex++;
+            if (sessionIndex >= 2) return; // Max 2 sessions per day
+          }
+        });
+        
+        // Add break
+        if (sessionIndex > 0) {
+          sessions.push(this.programSessions.create({
+            eventId,
+            title: 'Almuerzo',
+            date: dateStr,
+            startTime: '12:00',
+            endTime: '14:00',
+            location: 'Cafetería',
+            type: 'BREAK',
+            abstracts: [],
+            orderIndex: orderIndex++,
+          }));
+        }
+      }
+      
+      return sessions;
+    },
+  };
+
+  // DELEGATE PROGRAMS
+  delegatePrograms = {
+    getAll: (): DelegateProgram[] => this.getCollection<DelegateProgram>('delegatePrograms'),
+    
+    getByUser: (userId: string, eventId: string): DelegateProgram | undefined =>
+      this.getCollection<DelegateProgram>('delegatePrograms')
+        .find(dp => dp.userId === userId && dp.eventId === eventId),
+    
+    create: (data: Omit<DelegateProgram, 'id'>): DelegateProgram => {
+      const programs = this.getCollection<DelegateProgram>('delegatePrograms');
+      const newProgram: DelegateProgram = { 
+        ...data, 
+        id: this.generateId(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      programs.push(newProgram);
+      this.setCollection('delegatePrograms', programs);
+      return newProgram;
+    },
+    
+    update: (userId: string, eventId: string, sessionIds: string[]): DelegateProgram => {
+      const programs = this.getCollection<DelegateProgram>('delegatePrograms');
+      const index = programs.findIndex(dp => dp.userId === userId && dp.eventId === eventId);
+      
+      if (index !== -1) {
+        programs[index] = {
+          ...programs[index],
+          sessionIds,
+          updatedAt: new Date().toISOString()
+        };
+        this.setCollection('delegatePrograms', programs);
+        return programs[index];
+      }
+      
+      return this.delegatePrograms.create({ 
+        userId, 
+        eventId, 
+        sessionIds,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    },
+    
+    delete: (id: string): boolean => {
+      const programs = this.getCollection<DelegateProgram>('delegatePrograms').filter(dp => dp.id !== id);
+      this.setCollection('delegatePrograms', programs);
+      return true;
+    },
+  };
+
   // EMAIL SERVICE (simulated)
   emailService = {
     sendEmail: (
@@ -888,6 +1499,314 @@ class Database {
       return recipientIds.map(recipientId => 
         this.emailService.sendEmail(eventId, templateId, recipientId, variables)
       );
+    },
+  };
+
+  // CMS PAGES
+  cmsPages = {
+    getAll: (): CMSPage[] => this.getCollection<CMSPage>('cmsPages'),
+    
+    getById: (id: string): CMSPage | undefined =>
+      this.getCollection<CMSPage>('cmsPages').find(p => p.id === id),
+    
+    getBySlug: (slug: string): CMSPage | undefined =>
+      this.getCollection<CMSPage>('cmsPages').find(p => p.slug === slug),
+    
+    getPublished: (): CMSPage[] =>
+      this.getCollection<CMSPage>('cmsPages').filter(p => p.status === 'published')
+        .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0)),
+    
+    create: (data: Omit<CMSPage, 'id' | 'createdAt' | 'updatedAt'>): CMSPage => {
+      const pages = this.getCollection<CMSPage>('cmsPages');
+      const newPage: CMSPage = {
+        ...data,
+        id: this.generateId(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      pages.push(newPage);
+      this.setCollection('cmsPages', pages);
+      toast.success('Página creada exitosamente');
+      return newPage;
+    },
+    
+    update: (id: string, data: Partial<CMSPage>): CMSPage => {
+      const pages = this.getCollection<CMSPage>('cmsPages');
+      const index = pages.findIndex(p => p.id === id);
+      if (index === -1) throw new Error('Página no encontrada');
+      
+      pages[index] = {
+        ...pages[index],
+        ...data,
+        updatedAt: new Date().toISOString(),
+      };
+      this.setCollection('cmsPages', pages);
+      toast.success('Página actualizada');
+      return pages[index];
+    },
+    
+    delete: (id: string): boolean => {
+      const pages = this.getCollection<CMSPage>('cmsPages').filter(p => p.id !== id);
+      this.setCollection('cmsPages', pages);
+      toast.success('Página eliminada');
+      return true;
+    },
+    
+    publish: (id: string): CMSPage => {
+      return this.cmsPages.update(id, {
+        status: 'published',
+        publishedAt: new Date().toISOString(),
+      });
+    },
+  };
+
+  // CMS ARTICLES
+  cmsArticles = {
+    getAll: (): CMSArticle[] => this.getCollection<CMSArticle>('cmsArticles'),
+    
+    getById: (id: string): CMSArticle | undefined =>
+      this.getCollection<CMSArticle>('cmsArticles').find(a => a.id === id),
+    
+    getBySlug: (slug: string): CMSArticle | undefined =>
+      this.getCollection<CMSArticle>('cmsArticles').find(a => a.slug === slug),
+    
+    getPublished: (): CMSArticle[] =>
+      this.getCollection<CMSArticle>('cmsArticles')
+        .filter(a => a.status === 'published')
+        .sort((a, b) => new Date(b.publishedAt || b.createdAt).getTime() - 
+                        new Date(a.publishedAt || a.createdAt).getTime()),
+    
+    getByCategory: (categoryId: string): CMSArticle[] =>
+      this.getCollection<CMSArticle>('cmsArticles')
+        .filter(a => a.categoryId === categoryId && a.status === 'published'),
+    
+    getByTag: (tag: string): CMSArticle[] =>
+      this.getCollection<CMSArticle>('cmsArticles')
+        .filter(a => a.tags.includes(tag) && a.status === 'published'),
+    
+    getFeatured: (): CMSArticle[] =>
+      this.getCollection<CMSArticle>('cmsArticles')
+        .filter(a => a.featured && a.status === 'published')
+        .slice(0, 5),
+    
+    create: (data: Omit<CMSArticle, 'id' | 'createdAt' | 'updatedAt' | 'views'>): CMSArticle => {
+      const articles = this.getCollection<CMSArticle>('cmsArticles');
+      const newArticle: CMSArticle = {
+        ...data,
+        id: this.generateId(),
+        views: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      articles.push(newArticle);
+      this.setCollection('cmsArticles', articles);
+      toast.success('Artículo creado exitosamente');
+      return newArticle;
+    },
+    
+    update: (id: string, data: Partial<CMSArticle>): CMSArticle => {
+      const articles = this.getCollection<CMSArticle>('cmsArticles');
+      const index = articles.findIndex(a => a.id === id);
+      if (index === -1) throw new Error('Artículo no encontrado');
+      
+      articles[index] = {
+        ...articles[index],
+        ...data,
+        updatedAt: new Date().toISOString(),
+      };
+      this.setCollection('cmsArticles', articles);
+      toast.success('Artículo actualizado');
+      return articles[index];
+    },
+    
+    delete: (id: string): boolean => {
+      const articles = this.getCollection<CMSArticle>('cmsArticles').filter(a => a.id !== id);
+      this.setCollection('cmsArticles', articles);
+      toast.success('Artículo eliminado');
+      return true;
+    },
+    
+    incrementViews: (id: string): void => {
+      const articles = this.getCollection<CMSArticle>('cmsArticles');
+      const index = articles.findIndex(a => a.id === id);
+      if (index !== -1) {
+        articles[index].views += 1;
+        this.setCollection('cmsArticles', articles);
+      }
+    },
+  };
+
+  // CMS CATEGORIES
+  cmsCategories = {
+    getAll: (): CMSCategory[] => this.getCollection<CMSCategory>('cmsCategories')
+      .sort((a, b) => a.orderIndex - b.orderIndex),
+    
+    getById: (id: string): CMSCategory | undefined =>
+      this.getCollection<CMSCategory>('cmsCategories').find(c => c.id === id),
+    
+    getBySlug: (slug: string): CMSCategory | undefined =>
+      this.getCollection<CMSCategory>('cmsCategories').find(c => c.slug === slug),
+    
+    create: (data: Omit<CMSCategory, 'id' | 'createdAt'>): CMSCategory => {
+      const categories = this.getCollection<CMSCategory>('cmsCategories');
+      const newCategory: CMSCategory = {
+        ...data,
+        id: this.generateId(),
+        createdAt: new Date().toISOString(),
+      };
+      categories.push(newCategory);
+      this.setCollection('cmsCategories', categories);
+      toast.success('Categoría creada');
+      return newCategory;
+    },
+    
+    update: (id: string, data: Partial<CMSCategory>): CMSCategory => {
+      const categories = this.getCollection<CMSCategory>('cmsCategories');
+      const index = categories.findIndex(c => c.id === id);
+      if (index === -1) throw new Error('Categoría no encontrada');
+      
+      categories[index] = { ...categories[index], ...data };
+      this.setCollection('cmsCategories', categories);
+      toast.success('Categoría actualizada');
+      return categories[index];
+    },
+    
+    delete: (id: string): boolean => {
+      const categories = this.getCollection<CMSCategory>('cmsCategories').filter(c => c.id !== id);
+      this.setCollection('cmsCategories', categories);
+      toast.success('Categoría eliminada');
+      return true;
+    },
+  };
+
+  // CMS MENUS
+  cmsMenus = {
+    getAll: (): CMSMenu[] => this.getCollection<CMSMenu>('cmsMenus'),
+    
+    getById: (id: string): CMSMenu | undefined =>
+      this.getCollection<CMSMenu>('cmsMenus').find(m => m.id === id),
+    
+    getByLocation: (location: CMSMenu['location']): CMSMenu | undefined =>
+      this.getCollection<CMSMenu>('cmsMenus').find(m => m.location === location && m.isActive),
+    
+    create: (data: Omit<CMSMenu, 'id' | 'createdAt' | 'updatedAt'>): CMSMenu => {
+      const menus = this.getCollection<CMSMenu>('cmsMenus');
+      const newMenu: CMSMenu = {
+        ...data,
+        id: this.generateId(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      menus.push(newMenu);
+      this.setCollection('cmsMenus', menus);
+      toast.success('Menú creado');
+      return newMenu;
+    },
+    
+    update: (id: string, data: Partial<CMSMenu>): CMSMenu => {
+      const menus = this.getCollection<CMSMenu>('cmsMenus');
+      const index = menus.findIndex(m => m.id === id);
+      if (index === -1) throw new Error('Menú no encontrado');
+      
+      menus[index] = {
+        ...menus[index],
+        ...data,
+        updatedAt: new Date().toISOString(),
+      };
+      this.setCollection('cmsMenus', menus);
+      toast.success('Menú actualizado');
+      return menus[index];
+    },
+    
+    delete: (id: string): boolean => {
+      const menus = this.getCollection<CMSMenu>('cmsMenus').filter(m => m.id !== id);
+      this.setCollection('cmsMenus', menus);
+      toast.success('Menú eliminado');
+      return true;
+    },
+  };
+
+  // CMS WIDGETS
+  cmsWidgets = {
+    getAll: (): CMSWidget[] => this.getCollection<CMSWidget>('cmsWidgets')
+      .sort((a, b) => a.orderIndex - b.orderIndex),
+    
+    getById: (id: string): CMSWidget | undefined =>
+      this.getCollection<CMSWidget>('cmsWidgets').find(w => w.id === id),
+    
+    getByLocation: (location: CMSWidget['location']): CMSWidget[] =>
+      this.getCollection<CMSWidget>('cmsWidgets')
+        .filter(w => w.location === location && w.isActive)
+        .sort((a, b) => a.orderIndex - b.orderIndex),
+    
+    create: (data: Omit<CMSWidget, 'id'>): CMSWidget => {
+      const widgets = this.getCollection<CMSWidget>('cmsWidgets');
+      const newWidget: CMSWidget = {
+        ...data,
+        id: this.generateId(),
+      };
+      widgets.push(newWidget);
+      this.setCollection('cmsWidgets', widgets);
+      toast.success('Widget creado');
+      return newWidget;
+    },
+    
+    update: (id: string, data: Partial<CMSWidget>): CMSWidget => {
+      const widgets = this.getCollection<CMSWidget>('cmsWidgets');
+      const index = widgets.findIndex(w => w.id === id);
+      if (index === -1) throw new Error('Widget no encontrado');
+      
+      widgets[index] = { ...widgets[index], ...data };
+      this.setCollection('cmsWidgets', widgets);
+      toast.success('Widget actualizado');
+      return widgets[index];
+    },
+    
+    delete: (id: string): boolean => {
+      const widgets = this.getCollection<CMSWidget>('cmsWidgets').filter(w => w.id !== id);
+      this.setCollection('cmsWidgets', widgets);
+      toast.success('Widget eliminado');
+      return true;
+    },
+  };
+
+  // CMS SETTINGS
+  cmsSettings = {
+    get: (): CMSSettings | undefined => {
+      const settings = this.getCollection<CMSSettings>('cmsSettings');
+      return settings.length > 0 ? settings[0] : undefined;
+    },
+    
+    update: (data: Partial<CMSSettings>): CMSSettings => {
+      let settings = this.getCollection<CMSSettings>('cmsSettings');
+      
+      if (settings.length === 0) {
+        const newSettings: CMSSettings = {
+          id: this.generateId(),
+          siteName: 'Mi Sitio',
+          siteDescription: '',
+          primaryColor: '#3b82f6',
+          secondaryColor: '#10b981',
+          accentColor: '#f59e0b',
+          fontFamily: 'Inter',
+          headerStyle: 'default',
+          footerStyle: 'default',
+          socialLinks: {},
+          contactInfo: {},
+          seoSettings: {},
+          maintenanceMode: false,
+          allowRegistration: true,
+          moderateComments: false,
+          ...data,
+        };
+        settings = [newSettings];
+      } else {
+        settings[0] = { ...settings[0], ...data };
+      }
+      
+      this.setCollection('cmsSettings', settings);
+      toast.success('Configuración actualizada');
+      return settings[0];
     },
   };
 }
