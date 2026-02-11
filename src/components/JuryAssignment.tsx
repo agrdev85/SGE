@@ -271,7 +271,7 @@ export function JuryAssignment({ event }: JuryAssignmentProps) {
               <div className="space-y-3">
                 {pendingAbstracts.map(abstract => {
                   const author = db.users.getById(abstract.userId);
-                  const assignedReviewers = abstract.assignedReviewers || [];
+                  const assignedReviewers = (abstract as any).assignedReviewers || [];
                   
                   return (
                     <div 

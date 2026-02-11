@@ -120,7 +120,6 @@ export default function Register() {
         role: 'USER',
         country: formData.country,
         affiliation: formData.affiliation,
-        phone: formData.phone,
         idDocument: formData.idDocument,
         affiliationType: formData.affiliationType,
         economicSector: formData.economicSector,
@@ -129,7 +128,7 @@ export default function Register() {
         educationalLevel: formData.educationalLevel,
         gender: formData.gender,
         avatar: photoPreview,
-      });
+      } as any);
       navigate('/dashboard');
     } catch {
       // Error handled in AuthContext
