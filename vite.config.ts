@@ -12,6 +12,14 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
   },
+  preview: {
+    host: true,
+    port: 4173,
+    allowedHosts: [
+      "sge-t356.onrender.com",
+      ".onrender.com" // Esto permite TODOS los subdominios de onrender.com
+    ],
+  },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
     alias: {
@@ -19,7 +27,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    outDir: "dist", // explícitamente definido
+    outDir: "dist",
     emptyOutDir: true,
   },
 }));
