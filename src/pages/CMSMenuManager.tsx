@@ -268,9 +268,14 @@ const CMSMenuManager: React.FC = () => {
   return (
     <div className="p-8 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Gestión de Menús</h1>
-          <p className="text-gray-600 mt-1">Crea y organiza los menús de navegación</p>
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="icon" onClick={() => window.history.back()}>
+            <ChevronRight className="h-4 w-4 rotate-180" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Gestión de Menús</h1>
+            <p className="text-muted-foreground mt-1">Crea y organiza los menús de navegación</p>
+          </div>
         </div>
         <Button onClick={() => setIsMenuDialogOpen(true)} className="gap-2">
           <Plus className="w-4 h-4" />
