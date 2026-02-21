@@ -287,7 +287,11 @@ export default function EventLanding() {
                   <CardTitle style={{ color: event.primaryColor }}>Sobre el Evento</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground leading-relaxed">{event.description}</p>
+                  {/* render HTML description; using dangerouslySetInnerHTML since descriptions may contain markup */}
+                  <div
+                    className="text-muted-foreground leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: event.description || '' }}
+                  />
                 </CardContent>
               </Card>
 
