@@ -23,6 +23,7 @@ import { EmailTemplateManager } from '@/components/EmailTemplateManager';
 import { JuryAssignment } from '@/components/JuryAssignment';
 import { CertificateManager } from '@/components/CertificateManager';
 import { CredentialsManager } from '@/components/CredentialsManager';
+import EventContentEditor from '@/components/EventContentEditor';
 import { toast } from 'sonner';
 
 type ViewMode = 'list' | 'macro-detail' | 'event-detail' | 'form-builder' | 'email-templates' | 'jury-assignment' | 'certificates' | 'credentials' | 'attendance';
@@ -111,7 +112,6 @@ export default function Events() {
       }
       setIsMacroDialogOpen(false);
       loadAll();
-      // Refresh selectedMacro if editing
       if (editingMacro && selectedMacro?.id === editingMacro.id) {
         setSelectedMacro(db.macroEvents.getById(editingMacro.id) || null);
       }
@@ -137,7 +137,6 @@ export default function Events() {
     }
   };
 
-  // Drill into macro event
   const openMacroDetail = (me: MacroEvent) => {
     setSelectedMacro(me);
     setViewMode('macro-detail');
@@ -189,6 +188,10 @@ export default function Events() {
       }
       setIsEventDialogOpen(false);
       loadAll();
+      // Refresh selectedEvent if editing
+      if (editingEvent && selectedEvent?.id === editingEvent.id) {
+        setSelectedEvent(db.events.getById(editingEvent.id) || null);
+      }
     } catch (e: any) {
       toast.error(e.message || 'Error al guardar');
     }
@@ -215,7 +218,6 @@ export default function Events() {
     loadAll();
   };
 
-  // Drill into simple event
   const openEventDetail = (event: Event) => {
     setSelectedEvent(event);
     setViewMode('event-detail');
@@ -298,6 +300,16 @@ export default function Events() {
     setAttendanceData(db.sessionAttendance.getBySession(attendanceSession.id));
   };
 
+  const toggleAllAttendance = (users: { id: string }[], markAll: boolean) => {
+    if (!attendanceSession) return;
+    const event = db.events.getById(attendanceSession.eventId);
+    if (!event || !event.isActive || !attendanceSession.isActive) return;
+    users.forEach(user => {
+      db.sessionAttendance.markAttendance(attendanceSession.id, attendanceSession.eventId, user.id, markAll);
+    });
+    setAttendanceData(db.sessionAttendance.getBySession(attendanceSession.id));
+  };
+
   // ===== SUB-VIEW HANDLERS =====
   const openFormBuilder = (event: Event, type: 'event' | 'user') => {
     setSelectedEvent(event); setFormBuilderType(type); setViewMode('form-builder');
@@ -374,11 +386,146 @@ export default function Events() {
     </div>
   );
 
+  // ===== ALL DIALOGS (rendered at component level, visible from any view) =====
+  const renderDialogs = () => (
+    <>
+      {/* MACRO EVENT DIALOG */}
+      <Dialog open={isMacroDialogOpen} onOpenChange={setIsMacroDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingMacro ? 'Editar Macro Evento' : 'Crear Macro Evento'}</DialogTitle>
+            <DialogDescription>Contenedor principal que agrupa eventos simples</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2"><Label>Nombre *</Label><Input value={macroForm.name} onChange={e => setMacroForm({ ...macroForm, name: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Siglas (único) *</Label><Input value={macroForm.acronym} onChange={e => setMacroForm({ ...macroForm, acronym: e.target.value })} placeholder="Ej: CIB2024" /></div>
+            <div className="space-y-2"><Label>Descripción</Label><Textarea value={macroForm.description} onChange={e => setMacroForm({ ...macroForm, description: e.target.value })} rows={2} /></div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2"><Label>Fecha/Hora Inicio *</Label><Input type="datetime-local" value={macroForm.startDate} onChange={e => setMacroForm({ ...macroForm, startDate: e.target.value })} /></div>
+              <div className="space-y-2"><Label>Fecha/Hora Fin *</Label><Input type="datetime-local" value={macroForm.endDate} onChange={e => setMacroForm({ ...macroForm, endDate: e.target.value })} /></div>
+            </div>
+            <div className="space-y-2">
+              <Label>Logotipo</Label>
+              <ImageUploader value={macroForm.logoUrl} onChange={url => setMacroForm({ ...macroForm, logoUrl: url })} aspectRatio="square" placeholder="Subir logotipo" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsMacroDialogOpen(false)}>Cancelar</Button>
+            <Button variant="hero" onClick={handleSaveMacro}>{editingMacro ? 'Actualizar' : 'Crear'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* SIMPLE EVENT DIALOG */}
+      <Dialog open={isEventDialogOpen} onOpenChange={setIsEventDialogOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingEvent ? 'Editar Evento Simple' : 'Crear Evento Simple'}</DialogTitle>
+            <DialogDescription>Actividad concreta asociada a un macro evento</DialogDescription>
+          </DialogHeader>
+          <Tabs value={activeEventTab} onValueChange={setActiveEventTab}>
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="basic"><FileText className="h-4 w-4 mr-1" />Información</TabsTrigger>
+              <TabsTrigger value="content"><Settings2 className="h-4 w-4 mr-1" />Contenido</TabsTrigger>
+              <TabsTrigger value="images"><Image className="h-4 w-4 mr-1" />Imágenes</TabsTrigger>
+              <TabsTrigger value="colors"><Palette className="h-4 w-4 mr-1" />Colores</TabsTrigger>
+            </TabsList>
+            <TabsContent value="basic" className="space-y-4 mt-4">
+              <div className="space-y-2"><Label>Nombre en Español *</Label><Input value={eventForm.name} onChange={e => setEventForm({ ...eventForm, name: e.target.value })} /></div>
+              <div className="space-y-2"><Label>Nombre en Inglés *</Label><Input value={eventForm.nameEn} onChange={e => setEventForm({ ...eventForm, nameEn: e.target.value })} /></div>
+              <div className="space-y-2">
+                <Label>Macro Evento Asociado *</Label>
+                <Select value={eventForm.macroEventId} onValueChange={v => setEventForm({ ...eventForm, macroEventId: v })}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar macro evento" /></SelectTrigger>
+                  <SelectContent>
+                    {macroEvents.filter(me => me.isActive).map(me => (
+                      <SelectItem key={me.id} value={me.id}>{me.name} ({me.acronym})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </TabsContent>
+            <TabsContent value="content" className="mt-4">
+              <EventContentEditor
+                content={eventForm.description}
+                onChange={(content) => setEventForm({ ...eventForm, description: content })}
+              />
+            </TabsContent>
+            <TabsContent value="images" className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label>Banner del Evento</Label>
+                <ImageUploader value={eventForm.bannerImageUrl} onChange={url => setEventForm({ ...eventForm, bannerImageUrl: url })} aspectRatio="banner" placeholder="Subir banner" />
+              </div>
+              <div className="space-y-2">
+                <Label>Imagen de Fondo</Label>
+                <ImageUploader value={eventForm.backgroundImageUrl} onChange={url => setEventForm({ ...eventForm, backgroundImageUrl: url })} aspectRatio="banner" placeholder="Subir fondo" />
+              </div>
+            </TabsContent>
+            <TabsContent value="colors" className="space-y-4 mt-4">
+              <div className="grid grid-cols-3 gap-4">
+                {(['primaryColor', 'secondaryColor', 'backgroundColor'] as const).map(key => (
+                  <div key={key} className="space-y-2">
+                    <Label>{key === 'primaryColor' ? 'Color Primario' : key === 'secondaryColor' ? 'Color Secundario' : 'Color de Fondo'}</Label>
+                    <div className="flex gap-2">
+                      <Input type="color" value={eventForm[key]} onChange={e => setEventForm({ ...eventForm, [key]: e.target.value })} className="w-12 h-10 p-1 cursor-pointer" />
+                      <Input value={eventForm[key]} onChange={e => setEventForm({ ...eventForm, [key]: e.target.value })} className="flex-1" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 rounded-lg overflow-hidden h-24" style={{ backgroundColor: eventForm.backgroundColor }}>
+                <div className="h-12 flex items-center justify-center text-white font-semibold" style={{ background: `linear-gradient(135deg, ${eventForm.primaryColor}, ${eventForm.secondaryColor})` }}>
+                  {eventForm.name || 'Vista previa'}
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEventDialogOpen(false)}>Cancelar</Button>
+            <Button variant="hero" onClick={handleSaveEvent}>{editingEvent ? 'Actualizar' : 'Crear'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* SESSION DIALOG */}
+      <Dialog open={isSessionDialogOpen} onOpenChange={setIsSessionDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingSession ? 'Editar Sesión' : 'Crear Sesión'}</DialogTitle>
+            <DialogDescription>Ocurrencia temporal de un evento simple</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Evento Simple *</Label>
+              <Select value={sessionForm.eventId} onValueChange={v => setSessionForm({ ...sessionForm, eventId: v })} disabled={!!editingSession || !!selectedEvent}>
+                <SelectTrigger><SelectValue placeholder="Seleccionar evento" /></SelectTrigger>
+                <SelectContent>
+                  {(selectedEvent ? [selectedEvent] : events).map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2"><Label>Fecha *</Label><Input type="date" value={sessionForm.date} onChange={e => setSessionForm({ ...sessionForm, date: e.target.value })} /></div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2"><Label>Hora Inicio *</Label><Input type="time" value={sessionForm.startTime} onChange={e => setSessionForm({ ...sessionForm, startTime: e.target.value })} /></div>
+              <div className="space-y-2"><Label>Hora Fin *</Label><Input type="time" value={sessionForm.endTime} onChange={e => setSessionForm({ ...sessionForm, endTime: e.target.value })} /></div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsSessionDialogOpen(false)}>Cancelar</Button>
+            <Button variant="hero" onClick={handleSaveSession}>{editingSession ? 'Actualizar' : 'Crear'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+
   // ===== ATTENDANCE VIEW =====
   if (viewMode === 'attendance' && attendanceSession) {
     const users = db.users.getAll();
     const event = db.events.getById(attendanceSession.eventId);
     const isEditable = attendanceSession.isActive && event?.isActive;
+    const allAttended = users.length > 0 && users.every(u => attendanceData.find(a => a.userId === u.id)?.attended);
+    const someAttended = users.some(u => attendanceData.find(a => a.userId === u.id)?.attended);
     return (
       <DashboardLayout>
         <div className="space-y-4">
@@ -404,7 +551,21 @@ export default function Events() {
                   <TableHead>Participante</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Afiliación</TableHead>
-                  <TableHead className="text-center">Asistió</TableHead>
+                  <TableHead className="text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <Checkbox
+                        checked={allAttended}
+                        ref={(el) => {
+                          if (el) (el as any).indeterminate = someAttended && !allAttended;
+                        }}
+                        onCheckedChange={(checked) => {
+                          if (isEditable) toggleAllAttendance(users, !!checked);
+                        }}
+                        disabled={!isEditable}
+                      />
+                      <span>Asistió</span>
+                    </div>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -429,6 +590,7 @@ export default function Events() {
             </Table>
           </Card>
         </div>
+        {renderDialogs()}
       </DashboardLayout>
     );
   }
@@ -457,6 +619,7 @@ export default function Events() {
             type={formBuilderType}
           />
         </div>
+        {renderDialogs()}
       </DashboardLayout>
     );
   }
@@ -472,6 +635,7 @@ export default function Events() {
           </div>
           <EmailTemplateManager event={selectedEvent} />
         </div>
+        {renderDialogs()}
       </DashboardLayout>
     );
   }
@@ -487,6 +651,7 @@ export default function Events() {
           </div>
           <JuryAssignment event={selectedEvent} />
         </div>
+        {renderDialogs()}
       </DashboardLayout>
     );
   }
@@ -502,6 +667,7 @@ export default function Events() {
           </div>
           <CertificateManager event={selectedEvent} />
         </div>
+        {renderDialogs()}
       </DashboardLayout>
     );
   }
@@ -517,6 +683,7 @@ export default function Events() {
           </div>
           <CredentialsManager event={selectedEvent} />
         </div>
+        {renderDialogs()}
       </DashboardLayout>
     );
   }
@@ -642,6 +809,7 @@ export default function Events() {
             </CardContent>
           </Card>
         </div>
+        {renderDialogs()}
       </DashboardLayout>
     );
   }
@@ -739,6 +907,7 @@ export default function Events() {
             </CardContent>
           </Card>
         </div>
+        {renderDialogs()}
       </DashboardLayout>
     );
   }
@@ -798,129 +967,8 @@ export default function Events() {
             </TableBody>
           </Table>
         </Card>
-
-        {/* ===== MACRO EVENT DIALOG ===== */}
-        <Dialog open={isMacroDialogOpen} onOpenChange={setIsMacroDialogOpen}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>{editingMacro ? 'Editar Macro Evento' : 'Crear Macro Evento'}</DialogTitle>
-              <DialogDescription>Contenedor principal que agrupa eventos simples</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2"><Label>Nombre *</Label><Input value={macroForm.name} onChange={e => setMacroForm({ ...macroForm, name: e.target.value })} /></div>
-              <div className="space-y-2"><Label>Siglas (único) *</Label><Input value={macroForm.acronym} onChange={e => setMacroForm({ ...macroForm, acronym: e.target.value })} placeholder="Ej: CIB2024" /></div>
-              <div className="space-y-2"><Label>Descripción</Label><Textarea value={macroForm.description} onChange={e => setMacroForm({ ...macroForm, description: e.target.value })} rows={2} /></div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Fecha/Hora Inicio *</Label><Input type="datetime-local" value={macroForm.startDate} onChange={e => setMacroForm({ ...macroForm, startDate: e.target.value })} /></div>
-                <div className="space-y-2"><Label>Fecha/Hora Fin *</Label><Input type="datetime-local" value={macroForm.endDate} onChange={e => setMacroForm({ ...macroForm, endDate: e.target.value })} /></div>
-              </div>
-              <div className="space-y-2">
-                <Label>Logotipo</Label>
-                <ImageUploader value={macroForm.logoUrl} onChange={url => setMacroForm({ ...macroForm, logoUrl: url })} aspectRatio="square" placeholder="Subir logotipo" />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsMacroDialogOpen(false)}>Cancelar</Button>
-              <Button variant="hero" onClick={handleSaveMacro}>{editingMacro ? 'Actualizar' : 'Crear'}</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* ===== SIMPLE EVENT DIALOG ===== */}
-        <Dialog open={isEventDialogOpen} onOpenChange={setIsEventDialogOpen}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editingEvent ? 'Editar Evento Simple' : 'Crear Evento Simple'}</DialogTitle>
-              <DialogDescription>Actividad concreta asociada a un macro evento</DialogDescription>
-            </DialogHeader>
-            <Tabs value={activeEventTab} onValueChange={setActiveEventTab}>
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="basic"><FileText className="h-4 w-4 mr-1" />Información</TabsTrigger>
-                <TabsTrigger value="images"><Image className="h-4 w-4 mr-1" />Imágenes</TabsTrigger>
-                <TabsTrigger value="colors"><Palette className="h-4 w-4 mr-1" />Colores</TabsTrigger>
-              </TabsList>
-              <TabsContent value="basic" className="space-y-4 mt-4">
-                <div className="space-y-2"><Label>Nombre en Español *</Label><Input value={eventForm.name} onChange={e => setEventForm({ ...eventForm, name: e.target.value })} /></div>
-                <div className="space-y-2"><Label>Nombre en Inglés *</Label><Input value={eventForm.nameEn} onChange={e => setEventForm({ ...eventForm, nameEn: e.target.value })} /></div>
-                <div className="space-y-2"><Label>Descripción</Label><Textarea value={eventForm.description} onChange={e => setEventForm({ ...eventForm, description: e.target.value })} rows={2} /></div>
-                <div className="space-y-2">
-                  <Label>Macro Evento Asociado *</Label>
-                  <Select value={eventForm.macroEventId} onValueChange={v => setEventForm({ ...eventForm, macroEventId: v })}>
-                    <SelectTrigger><SelectValue placeholder="Seleccionar macro evento" /></SelectTrigger>
-                    <SelectContent>
-                      {macroEvents.filter(me => me.isActive).map(me => (
-                        <SelectItem key={me.id} value={me.id}>{me.name} ({me.acronym})</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </TabsContent>
-              <TabsContent value="images" className="space-y-4 mt-4">
-                <div className="space-y-2">
-                  <Label>Banner del Evento</Label>
-                  <ImageUploader value={eventForm.bannerImageUrl} onChange={url => setEventForm({ ...eventForm, bannerImageUrl: url })} aspectRatio="banner" placeholder="Subir banner" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Imagen de Fondo</Label>
-                  <ImageUploader value={eventForm.backgroundImageUrl} onChange={url => setEventForm({ ...eventForm, backgroundImageUrl: url })} aspectRatio="banner" placeholder="Subir fondo" />
-                </div>
-              </TabsContent>
-              <TabsContent value="colors" className="space-y-4 mt-4">
-                <div className="grid grid-cols-3 gap-4">
-                  {(['primaryColor', 'secondaryColor', 'backgroundColor'] as const).map(key => (
-                    <div key={key} className="space-y-2">
-                      <Label>{key === 'primaryColor' ? 'Color Primario' : key === 'secondaryColor' ? 'Color Secundario' : 'Color de Fondo'}</Label>
-                      <div className="flex gap-2">
-                        <Input type="color" value={eventForm[key]} onChange={e => setEventForm({ ...eventForm, [key]: e.target.value })} className="w-12 h-10 p-1 cursor-pointer" />
-                        <Input value={eventForm[key]} onChange={e => setEventForm({ ...eventForm, [key]: e.target.value })} className="flex-1" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-4 rounded-lg overflow-hidden h-24" style={{ backgroundColor: eventForm.backgroundColor }}>
-                  <div className="h-12 flex items-center justify-center text-white font-semibold" style={{ background: `linear-gradient(135deg, ${eventForm.primaryColor}, ${eventForm.secondaryColor})` }}>
-                    {eventForm.name || 'Vista previa'}
-                  </div>
-                </div>
-              </TabsContent>
-            </Tabs>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEventDialogOpen(false)}>Cancelar</Button>
-              <Button variant="hero" onClick={handleSaveEvent}>{editingEvent ? 'Actualizar' : 'Crear'}</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* ===== SESSION DIALOG ===== */}
-        <Dialog open={isSessionDialogOpen} onOpenChange={setIsSessionDialogOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>{editingSession ? 'Editar Sesión' : 'Crear Sesión'}</DialogTitle>
-              <DialogDescription>Ocurrencia temporal de un evento simple</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Evento Simple *</Label>
-                <Select value={sessionForm.eventId} onValueChange={v => setSessionForm({ ...sessionForm, eventId: v })} disabled={!!editingSession || !!selectedEvent}>
-                  <SelectTrigger><SelectValue placeholder="Seleccionar evento" /></SelectTrigger>
-                  <SelectContent>
-                    {(selectedEvent ? [selectedEvent] : events).map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2"><Label>Fecha *</Label><Input type="date" value={sessionForm.date} onChange={e => setSessionForm({ ...sessionForm, date: e.target.value })} /></div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Hora Inicio *</Label><Input type="time" value={sessionForm.startTime} onChange={e => setSessionForm({ ...sessionForm, startTime: e.target.value })} /></div>
-                <div className="space-y-2"><Label>Hora Fin *</Label><Input type="time" value={sessionForm.endTime} onChange={e => setSessionForm({ ...sessionForm, endTime: e.target.value })} /></div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsSessionDialogOpen(false)}>Cancelar</Button>
-              <Button variant="hero" onClick={handleSaveSession}>{editingSession ? 'Actualizar' : 'Crear'}</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
+      {renderDialogs()}
     </DashboardLayout>
   );
 }

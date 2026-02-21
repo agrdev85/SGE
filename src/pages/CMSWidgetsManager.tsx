@@ -167,11 +167,16 @@ const CMSWidgetsManager: React.FC = () => {
     <DashboardLayout>
       <div className="p-6">
         <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold">Gestión de Widgets</h1>
-            <p className="text-gray-600 mt-2">
-              Administra los widgets que aparecen en el sidebar, header y footer de tu sitio
-            </p>
+          <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" onClick={() => window.history.back()}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold">Gestión de Widgets</h1>
+              <p className="text-muted-foreground mt-2">
+                Administra los widgets que aparecen en el sidebar, header y footer de tu sitio
+              </p>
+            </div>
           </div>
           <Dialog open={dialogOpen} onOpenChange={(open) => {
             setDialogOpen(open);
