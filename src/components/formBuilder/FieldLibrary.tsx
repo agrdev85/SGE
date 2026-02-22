@@ -28,17 +28,30 @@ interface FieldConfig {
 
 const fieldTypes: FieldConfig[] = [
   { type: 'heading', label: 'Encabezado', icon: Heading, description: 'Título o sección' },
+  // Predefined registration fields (labels match RegisterUser mockup)
+  { type: 'text', label: 'Nombre(s) y Apellidos', icon: Type, description: 'Nombre completo' },
+  { type: 'text', label: 'Carné de Identidad / Pasaporte', icon: Hash, description: 'Documento de identidad' },
+  { type: 'email', label: 'Email', icon: Mail, description: 'Correo electrónico' },
+  { type: 'phone', label: 'Teléfono', icon: Phone, description: 'Número telefónico' },
+  { type: 'select', label: 'País', icon: ChevronDown, description: 'Selecciona un país' },
+  { type: 'select', label: 'Afiliación', icon: ChevronDown, description: 'Institución o empresa' },
+  { type: 'select', label: 'Tipo de Afiliación', icon: ChevronDown, description: 'Académica / Profesional' },
+  { type: 'select', label: 'Sector Económico', icon: ChevronDown, description: 'Sector de trabajo' },
+  { type: 'select', label: 'Tipo de Participación', icon: ChevronDown, description: 'Ponente / Asistente / Poster' },
+  { type: 'select', label: 'Nivel Científico', icon: ChevronDown, description: 'Doctorado / Maestría / Licenciatura' },
+  { type: 'select', label: 'Nivel Educacional', icon: ChevronDown, description: 'Nivel educativo' },
+  { type: 'radio', label: 'Género', icon: Circle, description: 'Masculino / Femenino' },
+  { type: 'image', label: 'Foto de Perfil', icon: Image, description: 'Sube una foto de perfil' },
+  { type: 'text', label: 'Contraseña', icon: Type, description: 'Contraseña de acceso' },
+  // Generic builder items
   { type: 'text', label: 'Texto corto', icon: Type, description: 'Campo de texto simple' },
   { type: 'textarea', label: 'Texto largo', icon: AlignLeft, description: 'Área de texto múltiple líneas' },
-  { type: 'email', label: 'Email', icon: Mail, description: 'Campo de correo electrónico' },
-  { type: 'phone', label: 'Teléfono', icon: Phone, description: 'Campo de número telefónico' },
   { type: 'number', label: 'Número', icon: Hash, description: 'Campo numérico' },
   { type: 'date', label: 'Fecha', icon: Calendar, description: 'Selector de fecha' },
   { type: 'select', label: 'Selector', icon: ChevronDown, description: 'Menú desplegable' },
   { type: 'checkbox', label: 'Checkbox', icon: CheckSquare, description: 'Casilla de verificación' },
   { type: 'radio', label: 'Radio', icon: Circle, description: 'Opciones únicas' },
   { type: 'file', label: 'Archivo', icon: Upload, description: 'Subida de archivo' },
-  { type: 'image', label: 'Imagen', icon: Image, description: 'Subida de imagen' },
   { type: 'separator', label: 'Separador', icon: Minus, description: 'Separador visual' },
 ];
 
@@ -47,9 +60,10 @@ interface DraggableFieldProps {
 }
 
 function DraggableField({ field }: DraggableFieldProps) {
+  const slug = field.label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: `library-${field.type}`,
-    data: { type: field.type, isNew: true },
+    id: `library-${field.type}-${slug}`,
+    data: { type: field.type, isNew: true, label: field.label },
   });
 
   const style = {
@@ -94,7 +108,7 @@ export function FieldLibrary() {
       </CardHeader>
       <CardContent className="space-y-2 overflow-y-auto max-h-[calc(100vh-300px)]">
         {fieldTypes.map(field => (
-          <DraggableField key={field.type} field={field} />
+          <DraggableField key={field.label} field={field} />
         ))}
       </CardContent>
     </Card>

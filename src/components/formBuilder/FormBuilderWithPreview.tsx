@@ -65,13 +65,14 @@ export function FormBuilderWithPreview({
     // Adding new field from library
     if (activeData?.isNew && over.id === 'form-canvas') {
       const fieldType = activeData.type as FieldType;
-      const fieldConfig = fieldTypes.find(f => f.type === fieldType);
+      const fieldLabel = activeData.label as string | undefined;
+      const fieldConfig = fieldTypes.find(f => f.type === fieldType && f.label === fieldLabel) || fieldTypes.find(f => f.type === fieldType);
       
       const newField: FormField = {
         id: generateId(),
         eventId,
         fieldType,
-        label: fieldConfig?.label || 'Nuevo Campo',
+        label: fieldLabel || fieldConfig?.label || 'Nuevo Campo',
         isRequired: false,
         orderIndex: fields.length,
         width: 'full',

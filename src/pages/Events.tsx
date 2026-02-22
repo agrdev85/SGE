@@ -70,6 +70,7 @@ export default function Events() {
   // Forms
   const [macroForm, setMacroForm] = useState({
     name: '', acronym: '', description: '', startDate: '', endDate: '', logoUrl: '',
+    bannerImageUrl: '', backgroundImageUrl: '', content: '', registrationFields: [] as any[],
     primaryColor: '#1e40af', secondaryColor: '#059669', backgroundColor: '#f0f9ff',
   });
   const [eventForm, setEventForm] = useState({
@@ -109,6 +110,10 @@ export default function Events() {
     setMacroForm({
       name: me.name, acronym: me.acronym, description: me.description,
       startDate: me.startDate, endDate: me.endDate, logoUrl: me.logoUrl || '',
+      bannerImageUrl: (me as any).bannerImageUrl || '',
+      backgroundImageUrl: (me as any).backgroundImageUrl || '',
+      content: (me as any).content || '',
+      registrationFields: (me as any).registrationFields || (me as any).formFields || [],
       primaryColor: (me as any).primaryColor || '#1e40af',
       secondaryColor: (me as any).secondaryColor || '#059669',
       backgroundColor: (me as any).backgroundColor || '#f0f9ff',
@@ -126,7 +131,23 @@ export default function Events() {
     }
     try {
       if (editingMacro) {
-        db.macroEvents.update(editingMacro.id, macroForm);
+        db.macroEvents.update(editingMacro.id, macroForm as any);
+        // Propagate relevant macro fields to all simple events belonging to this macro
+        const relatedEvents = events.filter(e => e.macroEventId === editingMacro.id);
+        relatedEvents.forEach(ev => {
+          const updateData: any = {
+            bannerImageUrl: macroForm.bannerImageUrl,
+            backgroundImageUrl: macroForm.backgroundImageUrl,
+            logoUrl: macroForm.logoUrl,
+            primaryColor: macroForm.primaryColor,
+            secondaryColor: macroForm.secondaryColor,
+            backgroundColor: macroForm.backgroundColor,
+            startDate: macroForm.startDate,
+            endDate: macroForm.endDate,
+          };
+          db.events.update(ev.id, updateData);
+          if (macroForm.registrationFields) db.events.updateFormFields(ev.id, macroForm.registrationFields as any);
+        });
         toast.success('Macro evento actualizado');
       } else {
         db.macroEvents.create({ ...macroForm, isActive: false });
@@ -291,13 +312,17 @@ export default function Events() {
   const openCredentials = () => { setViewMode('credentials'); };
 
   const handleSaveFormFields = (fields: FormField[]) => {
-    if (selectedMacro) {
+    const macroToUse = editingMacro || selectedMacro;
+    if (macroToUse) {
       // Save form fields to all events of this macro
-      const macroEventsList = events.filter(e => e.macroEventId === selectedMacro.id);
+      const macroEventsList = events.filter(e => e.macroEventId === macroToUse.id);
       macroEventsList.forEach(ev => db.events.updateFormFields(ev.id, fields));
       // Also save to macro event as registrationFields
-      db.macroEvents.update(selectedMacro.id, { formFields: fields } as any);
+      db.macroEvents.update(macroToUse.id, { registrationFields: fields } as any);
       loadAll();
+    } else {
+      // If no macro selected (editing new macro), just update local state
+      setMacroForm(prev => ({ ...prev, registrationFields: fields }));
     }
   };
 
@@ -374,9 +399,11 @@ export default function Events() {
             <DialogDescription>Contenedor principal que agrupa eventos simples</DialogDescription>
           </DialogHeader>
           <Tabs value={activeMacroTab} onValueChange={setActiveMacroTab}>
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="basic"><FileText className="h-4 w-4 mr-1" />Información</TabsTrigger>
-              <TabsTrigger value="images"><Image className="h-4 w-4 mr-1" />Logotipo</TabsTrigger>
+              <TabsTrigger value="content"><Settings2 className="h-4 w-4 mr-1" />Contenidos</TabsTrigger>
+              <TabsTrigger value="images"><Image className="h-4 w-4 mr-1" />Imágenes</TabsTrigger>
+              <TabsTrigger value="logotipo"><Image className="h-4 w-4 mr-1" />Logotipo</TabsTrigger>
               <TabsTrigger value="colors"><Palette className="h-4 w-4 mr-1" />Colores</TabsTrigger>
             </TabsList>
             <TabsContent value="basic" className="space-y-4 mt-4">
@@ -388,7 +415,23 @@ export default function Events() {
                 <div className="space-y-2"><Label>Fecha/Hora Fin *</Label><Input type="datetime-local" value={macroForm.endDate} onChange={e => setMacroForm({ ...macroForm, endDate: e.target.value })} /></div>
               </div>
             </TabsContent>
+            <TabsContent value="content" className="mt-4">
+              <EventContentEditor
+                content={macroForm.content || ''}
+                onChange={content => setMacroForm({ ...macroForm, content })}
+              />
+            </TabsContent>
             <TabsContent value="images" className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label>Banner del Evento</Label>
+                <ImageUploader value={macroForm.bannerImageUrl} onChange={url => setMacroForm({ ...macroForm, bannerImageUrl: url })} aspectRatio="banner" placeholder="Subir banner" />
+              </div>
+              <div className="space-y-2">
+                <Label>Imagen de Fondo</Label>
+                <ImageUploader value={macroForm.backgroundImageUrl} onChange={url => setMacroForm({ ...macroForm, backgroundImageUrl: url })} aspectRatio="banner" placeholder="Subir imagen de fondo" />
+              </div>
+            </TabsContent>
+            <TabsContent value="logotipo" className="space-y-4 mt-4">
               <div className="space-y-2">
                 <Label>Logotipo</Label>
                 <ImageUploader value={macroForm.logoUrl} onChange={url => setMacroForm({ ...macroForm, logoUrl: url })} aspectRatio="square" placeholder="Subir logotipo" />
@@ -427,48 +470,26 @@ export default function Events() {
             <DialogTitle>{editingEvent ? 'Editar Evento Simple' : 'Crear Evento Simple'}</DialogTitle>
             <DialogDescription>Actividad concreta asociada a un macro evento</DialogDescription>
           </DialogHeader>
-          <Tabs value={activeEventTab} onValueChange={setActiveEventTab}>
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="basic"><FileText className="h-4 w-4 mr-1" />Información</TabsTrigger>
-              <TabsTrigger value="content"><Settings2 className="h-4 w-4 mr-1" />Contenido</TabsTrigger>
-              <TabsTrigger value="images"><Image className="h-4 w-4 mr-1" />Imágenes</TabsTrigger>
-            </TabsList>
-            <TabsContent value="basic" className="space-y-4 mt-4">
-              <div className="space-y-2"><Label>Nombre en Español *</Label><Input value={eventForm.name} onChange={e => setEventForm({ ...eventForm, name: e.target.value })} /></div>
-              <div className="space-y-2"><Label>Nombre en Inglés</Label><Input value={eventForm.nameEn} onChange={e => setEventForm({ ...eventForm, nameEn: e.target.value })} /></div>
-              <div className="space-y-2">
-                <Label>Descripción General</Label>
-                <Textarea value={eventForm.description} onChange={e => setEventForm({ ...eventForm, description: e.target.value })} rows={3} placeholder="Descripción general del evento simple..." />
-              </div>
-              <div className="space-y-2">
-                <Label>Macro Evento Asociado *</Label>
-                <Select value={eventForm.macroEventId} onValueChange={v => setEventForm({ ...eventForm, macroEventId: v })}>
-                  <SelectTrigger><SelectValue placeholder="Seleccionar macro evento" /></SelectTrigger>
-                  <SelectContent>
-                    {macroEvents.filter(me => me.isActive).map(me => (
-                      <SelectItem key={me.id} value={me.id}>{me.name} ({me.acronym})</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </TabsContent>
-            <TabsContent value="content" className="mt-4">
-              <EventContentEditor
-                content={eventForm.description}
-                onChange={(content) => setEventForm({ ...eventForm, description: content })}
-              />
-            </TabsContent>
-            <TabsContent value="images" className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label>Banner del Evento</Label>
-                <ImageUploader value={eventForm.bannerImageUrl} onChange={url => setEventForm({ ...eventForm, bannerImageUrl: url })} aspectRatio="banner" placeholder="Subir banner" />
-              </div>
-              <div className="space-y-2">
-                <Label>Imagen de Fondo</Label>
-                <ImageUploader value={eventForm.backgroundImageUrl} onChange={url => setEventForm({ ...eventForm, backgroundImageUrl: url })} aspectRatio="banner" placeholder="Subir fondo" />
-              </div>
-            </TabsContent>
-          </Tabs>
+          {/* Solo información básica y descripción simple */}
+          <div className="space-y-4 mt-4">
+            <div className="space-y-2"><Label>Nombre en Español *</Label><Input value={eventForm.name} onChange={e => setEventForm({ ...eventForm, name: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Nombre en Inglés</Label><Input value={eventForm.nameEn} onChange={e => setEventForm({ ...eventForm, nameEn: e.target.value })} /></div>
+            <div className="space-y-2">
+              <Label>Descripción General</Label>
+              <Textarea value={eventForm.description} onChange={e => setEventForm({ ...eventForm, description: e.target.value })} rows={3} placeholder="Descripción general del evento simple..." />
+            </div>
+            <div className="space-y-2">
+              <Label>Macro Evento Asociado *</Label>
+              <Select value={eventForm.macroEventId} onValueChange={v => setEventForm({ ...eventForm, macroEventId: v })}>
+                <SelectTrigger><SelectValue placeholder="Seleccionar macro evento" /></SelectTrigger>
+                <SelectContent>
+                  {macroEvents.filter(me => me.isActive).map(me => (
+                    <SelectItem key={me.id} value={me.id}>{me.name} ({me.acronym})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEventDialogOpen(false)}>Cancelar</Button>
             <Button variant="hero" onClick={handleSaveEvent}>{editingEvent ? 'Actualizar' : 'Crear'}</Button>
@@ -594,7 +615,7 @@ export default function Events() {
             <FormBuilderWithPreview
               eventId={refEvent.id}
               event={refEvent}
-              initialFields={refEvent.formFields}
+              initialFields={(selectedMacro as any)?.registrationFields || refEvent.formFields || defaultRegistrationFields}
               onSave={handleSaveFormFields}
               type="event"
             />

@@ -55,6 +55,7 @@ export default function Users() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [formData, setFormData] = useState({
     name: '', email: '', role: 'USER' as User['role'], country: '', affiliation: '', avatar: '', isActive: true,
+    idDocument: '', phone: '', affiliationType: '', economicSector: '', participationType: '', scientificLevel: '', educationalLevel: '', gender: 'M', password: '', confirmPassword: '',
   });
 
   useEffect(() => { loadUsers(); }, []);
@@ -77,24 +78,30 @@ export default function Users() {
 
   const openCreateDialog = () => {
     setEditingUser(null);
-    setFormData({ name: '', email: '', role: 'USER', country: '', affiliation: '', avatar: '', isActive: true });
+    setFormData({ name: '', email: '', role: 'USER', country: '', affiliation: '', avatar: '', isActive: true,
+      idDocument: '', phone: '', affiliationType: '', economicSector: '', participationType: '', scientificLevel: '', educationalLevel: '', gender: 'M', password: '', confirmPassword: '' });
     setIsDialogOpen(true);
   };
 
   const openEditDialog = (user: User) => {
     setEditingUser(user);
-    setFormData({ name: user.name, email: user.email, role: user.role, country: user.country, affiliation: user.affiliation, avatar: user.avatar || '', isActive: user.isActive });
+    setFormData({ name: user.name, email: user.email, role: user.role, country: user.country, affiliation: user.affiliation, avatar: user.avatar || '', isActive: user.isActive,
+      idDocument: (user as any).idDocument || '', phone: (user as any).phone || '', affiliationType: (user as any).affiliationType || '', economicSector: (user as any).economicSector || '', participationType: (user as any).participationType || '', scientificLevel: (user as any).scientificLevel || '', educationalLevel: (user as any).educationalLevel || '', gender: (user as any).gender || 'M', password: '', confirmPassword: '' });
     setIsDialogOpen(true);
   };
 
   const handleSave = () => {
     if (!formData.name || !formData.email) { toast.error('Nombre y email son requeridos'); return; }
+    if (!editingUser) {
+      if (!formData.password) { toast.error('Contraseña requerida para nuevo usuario'); return; }
+      if (formData.password !== formData.confirmPassword) { toast.error('Las contraseñas no coinciden'); return; }
+    }
     try {
       if (editingUser) {
-        db.users.update(editingUser.id, formData);
+        db.users.update(editingUser.id, formData as any);
         toast.success('Usuario actualizado');
       } else {
-        db.users.create(formData);
+        db.users.create(formData as any);
         toast.success('Usuario creado');
       }
       setIsDialogOpen(false);
@@ -650,13 +657,37 @@ export default function Users() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>Nombre *</Label><Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} /></div>
+                <div className="space-y-2"><Label>Carné de Identidad / Pasaporte *</Label><Input value={formData.idDocument} onChange={(e) => setFormData({ ...formData, idDocument: e.target.value })} /></div>
                 <div className="space-y-2"><Label>Email *</Label><Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} /></div>
+                <div className="space-y-2"><Label>Teléfono</Label><Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} /></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Rol</Label><Select value={formData.role} onValueChange={(v) => setFormData({ ...formData, role: v as User['role'] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.entries(roleConfig).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}</SelectContent></Select></div>
-                <div className="space-y-2"><Label>País</Label><Select value={formData.country} onValueChange={(v) => setFormData({ ...formData, country: v })}><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger><SelectContent>{countries.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select></div>
+                <div className="space-y-2"><Label>País *</Label><Select value={formData.country} onValueChange={(v) => setFormData({ ...formData, country: v })}><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger><SelectContent>{countries.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select></div>
+                <div className="space-y-2"><Label>Afiliación *</Label><Input value={formData.affiliation} onChange={(e) => setFormData({ ...formData, affiliation: e.target.value })} /></div>
               </div>
-              <div className="space-y-2"><Label>Afiliación</Label><Input value={formData.affiliation} onChange={(e) => setFormData({ ...formData, affiliation: e.target.value })} /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Tipo de Afiliación *</Label><Input value={formData.affiliationType} onChange={(e) => setFormData({ ...formData, affiliationType: e.target.value })} /></div>
+                <div className="space-y-2"><Label>Sector Económico *</Label><Input value={formData.economicSector} onChange={(e) => setFormData({ ...formData, economicSector: e.target.value })} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Tipo de Participación *</Label><Input value={formData.participationType} onChange={(e) => setFormData({ ...formData, participationType: e.target.value })} /></div>
+                <div className="space-y-2"><Label>Nivel Científico</Label><Input value={formData.scientificLevel} onChange={(e) => setFormData({ ...formData, scientificLevel: e.target.value })} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Nivel Educacional *</Label><Input value={formData.educationalLevel} onChange={(e) => setFormData({ ...formData, educationalLevel: e.target.value })} /></div>
+                <div className="space-y-2">
+                  <Label>Género *</Label>
+                  <div className="flex items-center gap-4 mt-2">
+                    <label className="flex items-center gap-2"><input type="radio" name="gender" checked={formData.gender === 'M'} onChange={() => setFormData({ ...formData, gender: 'M' })} /> Masculino</label>
+                    <label className="flex items-center gap-2"><input type="radio" name="gender" checked={formData.gender === 'F'} onChange={() => setFormData({ ...formData, gender: 'F' })} /> Femenino</label>
+                  </div>
+                </div>
+              </div>
+              {/* Profile image is handled at the top image uploader */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Contraseña {editingUser ? '' : '*'}</Label><Input type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} /></div>
+                <div className="space-y-2"><Label>Confirmar contraseña {editingUser ? '' : '*'}</Label><Input type="password" value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} /></div>
+              </div>
             </div>
             <DialogFooter><Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button><Button variant="hero" onClick={handleSave}>Guardar</Button></DialogFooter>
           </DialogContent>

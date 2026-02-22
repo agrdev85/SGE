@@ -2,6 +2,12 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { db, CMSMenu, CMSMenuItem } from '@/lib/database';
 import { ChevronDown } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface PublicHeaderProps {
   location?: 'header' | 'footer';
@@ -34,40 +40,60 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({ location = 'header' }) => {
 
   const renderMenuItem = (item: CMSMenuItem, isChild = false) => {
     const url = getMenuItemUrl(item);
-    const hasChildren = menu.items.some(i => i.parentId === item.id);
+    const children = menu.items.filter(i => i.parentId === item.id).sort((a, b) => a.orderIndex - b.orderIndex);
+    const hasChildren = children.length > 0;
+
+    const linkElement = item.type === 'external' || item.openInNewTab ? (
+      <a
+        href={url}
+        target={item.openInNewTab ? '_blank' : '_self'}
+        rel={item.openInNewTab ? 'noopener noreferrer' : undefined}
+        className={`block px-4 py-2 hover:text-primary transition-colors ${item.cssClass || ''}`}
+      >
+        {item.label}
+      </a>
+    ) : (
+      <Link
+        to={url}
+        className={`block px-4 py-2 hover:text-primary transition-colors ${item.cssClass || ''}`}
+      >
+        {item.label}
+      </Link>
+    );
+
+    if (hasChildren && !isChild) {
+      return (
+        <DropdownMenu key={item.id}>
+          <DropdownMenuTrigger className="flex items-center gap-1 px-4 py-2 hover:text-primary transition-colors cursor-pointer">
+            {item.label}
+            <ChevronDown className="w-4 h-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-48">
+            {children.map(child => (
+              <DropdownMenuItem key={child.id} asChild>
+                {child.type === 'external' || child.openInNewTab ? (
+                  <a
+                    href={getMenuItemUrl(child)}
+                    target={child.openInNewTab ? '_blank' : '_self'}
+                    rel={child.openInNewTab ? 'noopener noreferrer' : undefined}
+                  >
+                    {child.label}
+                  </a>
+                ) : (
+                  <Link to={getMenuItemUrl(child)}>
+                    {child.label}
+                  </Link>
+                )}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
+    }
 
     return (
-      <div key={item.id} className={isChild ? 'pl-4' : ''}>
-        {item.type === 'external' || item.openInNewTab ? (
-          <a
-            href={url}
-            target={item.openInNewTab ? '_blank' : '_self'}
-            rel={item.openInNewTab ? 'noopener noreferrer' : undefined}
-            className={`block px-4 py-2 hover:bg-gray-100 rounded ${item.cssClass || ''}`}
-          >
-            {item.icon && <span className="mr-2">{item.icon}</span>}
-            {item.label}
-            {hasChildren && <ChevronDown className="inline w-4 h-4 ml-1" />}
-          </a>
-        ) : (
-          <Link
-            to={url}
-            className={`block px-4 py-2 hover:bg-gray-100 rounded ${item.cssClass || ''}`}
-          >
-            {item.icon && <span className="mr-2">{item.icon}</span>}
-            {item.label}
-            {hasChildren && <ChevronDown className="inline w-4 h-4 ml-1" />}
-          </Link>
-        )}
-        
-        {hasChildren && (
-          <div className="ml-4 mt-1">
-            {menu.items
-              .filter(i => i.parentId === item.id)
-              .sort((a, b) => a.orderIndex - b.orderIndex)
-              .map(child => renderMenuItem(child, true))}
-          </div>
-        )}
+      <div key={item.id} className="flex items-center">
+        {linkElement}
       </div>
     );
   };

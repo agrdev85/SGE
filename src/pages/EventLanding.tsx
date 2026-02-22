@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useEffect, useState, useRef } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,23 +10,46 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { db, Event, FormField } from '@/lib/database';
+import { ImageUploader } from '@/components/ImageUploader';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Calendar, MapPin, Users, ArrowLeft, Beaker } from 'lucide-react';
 import { toast } from 'sonner';
+import { processAndSanitizeHtml, prepareHtmlForIframe, extractBodyContent } from '@/lib/htmlProcessor';
 
 export default function EventLanding() {
   const { eventId } = useParams();
+  const navigate = useNavigate();
   const [event, setEvent] = useState<Event | null>(null);
+  const [macro, setMacro] = useState<any | null>(null);
   const [formValues, setFormValues] = useState<Record<string, any>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (eventId) {
       const ev = db.events.getById(eventId);
       if (ev) {
         setEvent(ev);
+        const me = db.macroEvents.getById(ev.macroEventId);
+        if (me) setMacro(me);
       }
     }
   }, [eventId]);
+
+  // Handle internal links clicked inside HTML content
+  useEffect(() => {
+    const handleLinkClick = (e: Event) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'A' && (target as HTMLAnchorElement).hasAttribute('data-internal')) {
+        e.preventDefault();
+        const href = (target as HTMLAnchorElement).href;
+        navigate(href);
+      }
+    };
+
+    document.addEventListener('click', handleLinkClick);
+    return () => document.removeEventListener('click', handleLinkClick);
+  }, [navigate]);
 
   if (!event) {
     return (
@@ -195,7 +218,57 @@ export default function EventLanding() {
     }
   };
 
-  const sortedFields = [...(event.formFields || [])].sort((a, b) => a.orderIndex - b.orderIndex);
+  const resolvedFields: FormField[] = (event.formFields && event.formFields.length > 0)
+    ? event.formFields
+    : (macro && (macro.registrationFields || macro.formFields) ? (macro.registrationFields || macro.formFields) : []);
+  const sortedFields = [...(resolvedFields || [])].sort((a, b) => a.orderIndex - b.orderIndex);
+
+  const renderProfileImagePlaceholder = () => {
+    const imgField = sortedFields.find(f => f.fieldType === 'image' || f.fieldType === 'file' || f.id === 'profilePhoto');
+    if (!imgField) return null;
+    const preview = formValues[imgField.id] || '';
+
+    const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        setFormValues(prev => ({ ...prev, [imgField.id]: result }));
+      };
+      reader.readAsDataURL(file);
+    };
+
+    return (
+      <div className="flex justify-center mb-4">
+        <input 
+          ref={imageInputRef} 
+          type="file" 
+          accept="image/*" 
+          className="hidden" 
+          onChange={handlePhotoChange} 
+        />
+        <div
+          onClick={() => imageInputRef.current?.click()}
+          className="h-28 w-28 rounded-full border-2 border-dashed flex items-center justify-center text-muted-foreground bg-white overflow-hidden cursor-pointer hover:border-primary"
+        >
+          {preview ? (
+            <img src={preview} className="h-full w-full object-cover" alt="Preview" />
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/><path d="M6.5 20a6.5 6.5 0 0111 0"/></svg>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Prepare macro/html content for rendering (avoid IIFE inside JSX)
+  const rawMacroContent = (macro && macro.content) ? macro.content : '';
+  const macroIsFullDocument = /<!doctype|<html|<head|<body/i.test(rawMacroContent);
+  // Extract body content if full document, then sanitize and process links
+  const extractedContent = macroIsFullDocument ? extractBodyContent(rawMacroContent) : rawMacroContent;
+  const macroContentHtml = processAndSanitizeHtml(extractedContent);
 
   return (
     <div
@@ -218,13 +291,43 @@ export default function EventLanding() {
             <Button variant="ghost" asChild>
               <Link to="/login">Iniciar Sesión</Link>
             </Button>
-            <Button
-              asChild
-              style={{ backgroundColor: event.primaryColor }}
-              className="text-white hover:opacity-90"
-            >
-              <Link to="/register">Registrarse</Link>
-            </Button>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button style={{ backgroundColor: event.primaryColor }} className="text-white hover:opacity-90">
+                  Registrarse
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="w-full max-w-5xl max-h-[100vh] overflow-auto sm:rounded-lg">
+                <DialogHeader>
+                  <DialogTitle>Formulario de Inscripción</DialogTitle>
+                  <DialogDescription className="mb-2">Completa los campos para inscribirte en {event.name}</DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  {renderProfileImagePlaceholder()}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {sortedFields.map((field) => (
+                      <div
+                        key={field.id}
+                        className={field.width === 'full' || field.fieldType === 'heading' || field.fieldType === 'separator' ? 'md:col-span-2' : ''}
+                      >
+                        {renderField(field)}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-end">
+                    <Button
+                      type="submit"
+                      size="lg"
+                      disabled={isSubmitting}
+                      style={{ backgroundColor: event.primaryColor }}
+                      className="text-white hover:opacity-90"
+                    >
+                      {isSubmitting ? 'Procesando...' : 'Completar Inscripción'}
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       </header>
@@ -277,101 +380,81 @@ export default function EventLanding() {
       </section>
 
       {/* Content */}
-      <section className="py-12">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Event Info */}
-            <div className="lg:col-span-2 space-y-6">
+      <section className="py-12 bg-gradient-to-b from-background to-secondary/5">
+        <div className="w-full">
+          <div className="container mx-auto px-4 mb-4">
+            <h2 className="text-lg font-semibold">{event.name}</h2>
+            <p className="text-sm text-muted-foreground">{event.isActive ? 'Inscripciones abiertas' : 'Próximamente'}</p>
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 px-4">
+            {/* Event Info - Full width content */}
+            <div className="lg:col-span-2 space-y-6 transition-all">
               <Card>
                 <CardHeader>
                   <CardTitle style={{ color: event.primaryColor }}>Sobre el Evento</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  {/* render HTML description; using dangerouslySetInnerHTML since descriptions may contain markup */}
-                  <div
-                    className="text-muted-foreground leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: event.description || '' }}
-                  />
+                <CardContent className="p-0 -ml-6 -mb-6">
+                  {/* Prefer macro content when available (admin may paste full HTML) */}
+                  {macroContentHtml ? (
+                    <div 
+                      className="w-full prose prose-sm max-w-none p-6 overflow-auto"
+                      style={{ maxHeight: '80vh', backgroundColor: 'white' }}
+                      dangerouslySetInnerHTML={{ __html: macroContentHtml }}
+                    />
+                  ) : (
+                    <div className="text-muted-foreground leading-relaxed prose prose-sm max-w-none p-6" dangerouslySetInnerHTML={{ __html: event.description || '' }} />
+                  )}
                 </CardContent>
               </Card>
 
-              {/* Registration Form */}
-              {event.formFields && event.formFields.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle style={{ color: event.primaryColor }}>Formulario de Inscripción</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {sortedFields.map((field) => (
-                          <div
-                            key={field.id}
-                            className={field.width === 'full' || field.fieldType === 'heading' || field.fieldType === 'separator' ? 'md:col-span-2' : ''}
-                          >
-                            {renderField(field)}
-                          </div>
-                        ))}
-                      </div>
-                      <Button
-                        type="submit"
-                        size="lg"
-                        disabled={isSubmitting}
-                        style={{ backgroundColor: event.primaryColor }}
-                        className="w-full text-white hover:opacity-90"
-                      >
-                        {isSubmitting ? 'Procesando...' : 'Completar Inscripción'}
-                      </Button>
-                    </form>
-                  </CardContent>
-                </Card>
-              )}
+              {/* Registration handled in modal */}
             </div>
 
             {/* Sidebar */}
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle style={{ color: event.primaryColor }}>Fechas Importantes</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex justify-between items-center py-2 border-b">
-                    <span className="text-sm text-muted-foreground">Inicio del evento</span>
-                    <span className="font-medium">
-                      {new Date(event.startDate).toLocaleDateString('es-ES', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b">
-                    <span className="text-sm text-muted-foreground">Fin del evento</span>
-                    <span className="font-medium">
-                      {new Date(event.endDate).toLocaleDateString('es-ES', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
+            <div className="lg:col-span-1 space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle style={{ color: event.primaryColor }}>Fechas Importantes</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex justify-between items-center py-2 border-b">
+                      <span className="text-sm text-muted-foreground">Inicio del evento</span>
+                      <span className="font-medium">
+                        {new Date(event.startDate).toLocaleDateString('es-ES', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b">
+                      <span className="text-sm text-muted-foreground">Fin del evento</span>
+                      <span className="font-medium">
+                        {new Date(event.endDate).toLocaleDateString('es-ES', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
 
-              <Card
-                style={{
-                  background: `linear-gradient(135deg, ${event.primaryColor}, ${event.secondaryColor})`,
-                }}
-              >
-                <CardContent className="py-6 text-center text-white">
-                  <h3 className="text-xl font-bold mb-2">¿Necesitas ayuda?</h3>
-                  <p className="text-white/80 text-sm mb-4">Contáctanos si tienes alguna duda</p>
-                  <Button variant="secondary" asChild>
-                    <a href="mailto:info@scievent.com">Contactar</a>
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
+                <Card
+                  style={{
+                    background: `linear-gradient(135deg, ${event.primaryColor}, ${event.secondaryColor})`,
+                  }}
+                >
+                  <CardContent className="py-6 text-center text-white">
+                    <h3 className="text-xl font-bold mb-2">¿Necesitas ayuda?</h3>
+                    <p className="text-white/80 text-sm mb-4">Contáctanos si tienes alguna duda</p>
+                    <Button variant="secondary" asChild>
+                      <a href="mailto:info@scievent.com">Contactar</a>
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
           </div>
         </div>
       </section>
