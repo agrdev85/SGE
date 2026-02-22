@@ -30,7 +30,7 @@ const CMSMenuRenderer: React.FC<CMSMenuRendererProps> = ({ menu, className = '' 
 
   const renderMenuLink = (item: CMSMenuItem) => {
     const href = item.url || '#';
-    const target = item.target || '_self';
+    const target = item.openInNewTab ? '_blank' : '_self';
 
     return (
       <a
@@ -45,9 +45,6 @@ const CMSMenuRenderer: React.FC<CMSMenuRendererProps> = ({ menu, className = '' 
   };
 
   const renderMenuToggle = (item: CMSMenuItem) => {
-    const href = item.url || '#';
-    const target = item.target || '_self';
-
     return (
       <NavigationMenuTrigger className="flex items-center gap-1">
         {item.label}
@@ -88,8 +85,8 @@ const CMSMenuRenderer: React.FC<CMSMenuRendererProps> = ({ menu, className = '' 
               <NavigationMenuLink asChild>
                 <a
                   href={item.url || '#'}
-                  target={item.target || '_self'}
-                  rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}
+                  target={item.openInNewTab ? '_blank' : '_self'}
+                  rel={item.openInNewTab ? 'noopener noreferrer' : undefined}
                   className="px-3 py-2 text-sm font-medium hover:text-primary transition-colors inline-block"
                 >
                   {item.label}

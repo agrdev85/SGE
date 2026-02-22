@@ -70,7 +70,7 @@ export default function Events() {
   // Forms
   const [macroForm, setMacroForm] = useState({
     name: '', acronym: '', description: '', startDate: '', endDate: '', logoUrl: '',
-    bannerImageUrl: '', backgroundImageUrl: '', content: '', registrationFields: [] as any[],
+    content: '', bannerImageUrl: '', backgroundImageUrl: '', registrationFields: [] as any[],
     primaryColor: '#1e40af', secondaryColor: '#059669', backgroundColor: '#f0f9ff',
   });
   const [eventForm, setEventForm] = useState({
@@ -100,7 +100,11 @@ export default function Events() {
   // ===== MACRO EVENT HANDLERS =====
   const openCreateMacro = () => {
     setEditingMacro(null);
-    setMacroForm({ name: '', acronym: '', description: '', startDate: '', endDate: '', logoUrl: '', primaryColor: '#1e40af', secondaryColor: '#059669', backgroundColor: '#f0f9ff' });
+    setMacroForm({ 
+      name: '', acronym: '', description: '', startDate: '', endDate: '', logoUrl: '', 
+      content: '', bannerImageUrl: '', backgroundImageUrl: '', registrationFields: [],
+      primaryColor: '#1e40af', secondaryColor: '#059669', backgroundColor: '#f0f9ff' 
+    });
     setActiveMacroTab('basic');
     setIsMacroDialogOpen(true);
   };

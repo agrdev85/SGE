@@ -38,7 +38,7 @@ export default function EventLanding() {
 
   // Handle internal links clicked inside HTML content
   useEffect(() => {
-    const handleLinkClick = (e: Event) => {
+    const handleLinkClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (target.tagName === 'A' && (target as HTMLAnchorElement).hasAttribute('data-internal')) {
         e.preventDefault();
@@ -47,8 +47,8 @@ export default function EventLanding() {
       }
     };
 
-    document.addEventListener('click', handleLinkClick);
-    return () => document.removeEventListener('click', handleLinkClick);
+    document.addEventListener('click', handleLinkClick as EventListener);
+    return () => document.removeEventListener('click', handleLinkClick as EventListener);
   }, [navigate]);
 
   if (!event) {
@@ -82,12 +82,27 @@ export default function EventLanding() {
       return;
     }
 
-    // Simulate registration
-    setTimeout(() => {
-      toast.success('¡Inscripción completada exitosamente!');
+    // Extract email and name from form data if available
+    const emailField = event.formFields?.find(f => f.fieldType === 'email')?.id;
+    const nameField = event.formFields?.find(f => f.fieldType === 'text')?.id;
+    
+    try {
+      // Save registration to database
+      db.eventRegistrations.create({
+        eventId: eventId!,
+        userId: localStorage.getItem('currentUserId'),
+        formData: formValues,
+        email: emailField ? formValues[emailField] : undefined,
+        firstName: nameField ? formValues[nameField] : undefined,
+        status: 'registered',
+      });
+      
       setFormValues({});
       setIsSubmitting(false);
-    }, 1000);
+    } catch (error) {
+      toast.error('Error al guardar la inscripción');
+      setIsSubmitting(false);
+    }
   };
 
   const renderField = (field: FormField) => {
@@ -390,20 +405,29 @@ export default function EventLanding() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 px-4">
             {/* Event Info - Full width content */}
             <div className="lg:col-span-2 space-y-6 transition-all">
-              <Card>
+              <Card className="overflow-hidden">
                 <CardHeader>
                   <CardTitle style={{ color: event.primaryColor }}>Sobre el Evento</CardTitle>
                 </CardHeader>
-                <CardContent className="p-0 -ml-6 -mb-6">
+                <CardContent className="p-0">
                   {/* Prefer macro content when available (admin may paste full HTML) */}
                   {macroContentHtml ? (
                     <div 
-                      className="w-full prose prose-sm max-w-none p-6 overflow-auto"
-                      style={{ maxHeight: '80vh', backgroundColor: 'white' }}
+                      className="w-full max-w-none p-8 overflow-y-auto bg-white"
+                      style={{
+                        maxHeight: '80vh',
+                        backgroundColor: '#fafafa',
+                        fontSize: '16px',
+                        lineHeight: '1.6'
+                      }}
                       dangerouslySetInnerHTML={{ __html: macroContentHtml }}
                     />
                   ) : (
-                    <div className="text-muted-foreground leading-relaxed prose prose-sm max-w-none p-6" dangerouslySetInnerHTML={{ __html: event.description || '' }} />
+                    <div 
+                      className="max-w-none p-8 bg-white overflow-y-auto" 
+                      style={{ maxHeight: '80vh', backgroundColor: '#fafafa', fontSize: '16px', lineHeight: '1.6' }}
+                      dangerouslySetInnerHTML={{ __html: event.description || '' }} 
+                    />
                   )}
                 </CardContent>
               </Card>

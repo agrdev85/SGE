@@ -37,6 +37,13 @@ export interface MacroEvent {
   startDate: string; // datetime
   endDate: string; // datetime
   logoUrl?: string;
+  bannerImageUrl?: string;
+  backgroundImageUrl?: string;
+  content?: string; // HTML content for the event
+  primaryColor?: string;
+  secondaryColor?: string;
+  backgroundColor?: string;
+  registrationFields?: FormField[];
   isActive: boolean;
   createdAt: string;
 }
@@ -239,6 +246,18 @@ export interface JuryAssignment {
   abstractId: string;
   assignedAt: string;
   status: 'pending' | 'completed';
+}
+
+export interface EventRegistration {
+  id: string;
+  eventId: string;
+  userId?: string; // Optional, for guest registrations
+  formData: Record<string, any>; // All form field values
+  registeredAt: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  status: 'registered' | 'attended' | 'cancelled';
 }
 
 // CMS Types
@@ -1253,6 +1272,48 @@ class Database {
       });
 
       return { assignments, stats };
+    },
+  };
+
+  // EVENT REGISTRATIONS
+  eventRegistrations = {
+    getAll: (): EventRegistration[] => this.getCollection<EventRegistration>('eventRegistrations'),
+    
+    getByEvent: (eventId: string): EventRegistration[] =>
+      this.getCollection<EventRegistration>('eventRegistrations').filter(r => r.eventId === eventId),
+    
+    getByUser: (userId: string): EventRegistration[] =>
+      this.getCollection<EventRegistration>('eventRegistrations').filter(r => r.userId === userId),
+    
+    getById: (id: string): EventRegistration | undefined =>
+      this.getCollection<EventRegistration>('eventRegistrations').find(r => r.id === id),
+    
+    create: (data: Omit<EventRegistration, 'id' | 'registeredAt'>): EventRegistration => {
+      const registrations = this.getCollection<EventRegistration>('eventRegistrations');
+      const newRegistration: EventRegistration = {
+        ...data,
+        id: this.generateId(),
+        registeredAt: new Date().toISOString(),
+      };
+      registrations.push(newRegistration);
+      this.setCollection('eventRegistrations', registrations);
+      toast.success('¡Inscripción completada exitosamente!');
+      return newRegistration;
+    },
+    
+    update: (id: string, data: Partial<EventRegistration>): EventRegistration => {
+      const registrations = this.getCollection<EventRegistration>('eventRegistrations');
+      const index = registrations.findIndex(r => r.id === id);
+      if (index === -1) throw new Error('Inscripción no encontrada');
+      registrations[index] = { ...registrations[index], ...data };
+      this.setCollection('eventRegistrations', registrations);
+      return registrations[index];
+    },
+    
+    delete: (id: string): boolean => {
+      const registrations = this.getCollection<EventRegistration>('eventRegistrations').filter(r => r.id !== id);
+      this.setCollection('eventRegistrations', registrations);
+      return true;
     },
   };
 
