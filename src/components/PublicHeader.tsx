@@ -98,15 +98,9 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({ location = 'header' }) => {
             <div className="flex items-center gap-4">
               <Link
                 to="/login"
-                className="text-gray-700 hover:text-blue-600 px-4 py-2"
-              >
-                Iniciar Sesión
-              </Link>
-              <Link
-                to="/register"
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
               >
-                Registrarse
+                Iniciar Sesión
               </Link>
             </div>
           </div>

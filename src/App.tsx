@@ -31,6 +31,7 @@ import PublicPage from "./pages/PublicPage";
 import PublicArticle from "./pages/PublicArticle";
 import PublicBlog from "./pages/PublicBlog";
 import PublicCategory from "./pages/PublicCategory";
+import ScrollToTop from "./components/ScrollToTop";
 
 const queryClient = new QueryClient();
 
@@ -73,6 +74,7 @@ const App = () => (
             
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <ScrollToTop />
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>

@@ -92,7 +92,7 @@ export default function Index() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button variant="hero" size="xl" asChild>
-                <Link to="/register">
+                <Link to="/login">
                   Comenzar Ahora
                   <ArrowRight className="h-5 w-5" />
                 </Link>
@@ -274,8 +274,8 @@ export default function Index() {
             Únete a cientos de investigadores que ya utilizan SciEvent para gestionar sus eventos científicos
           </p>
           <Button size="xl" variant="secondary" asChild className="bg-white text-primary hover:bg-white/90">
-            <Link to="/register">
-              Crear mi cuenta gratis
+            <Link to="/login">
+              Iniciar Sesión
               <ArrowRight className="h-5 w-5" />
             </Link>
           </Button>
