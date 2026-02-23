@@ -32,6 +32,15 @@ import PublicArticle from "./pages/PublicArticle";
 import PublicBlog from "./pages/PublicBlog";
 import PublicCategory from "./pages/PublicCategory";
 import ScrollToTop from "./components/ScrollToTop";
+// Host Module
+import HostDashboard from "./pages/host/HostDashboard";
+import HostCalendar from "./pages/host/HostCalendar";
+import HostSolicitudes from "./pages/host/HostSolicitudes";
+import HostEventos from "./pages/host/HostEventos";
+import HostBEOs from "./pages/host/HostBEOs";
+import HostSalones from "./pages/host/HostSalones";
+import HostReceptivos from "./pages/host/HostReceptivos";
+import HostConfiguracion from "./pages/host/HostConfiguracion";
 
 const queryClient = new QueryClient();
 
@@ -65,6 +74,16 @@ const App = () => (
             <Route path="/cms/menus" element={<CMSMenuManager />} />
             <Route path="/cms/widgets" element={<CMSWidgetsManager />} />
             <Route path="/superadmin" element={<SuperAdminPanel />} />
+            
+            {/* Host Module Routes */}
+            <Route path="/host" element={<HostDashboard />} />
+            <Route path="/host/calendario" element={<HostCalendar />} />
+            <Route path="/host/solicitudes" element={<HostSolicitudes />} />
+            <Route path="/host/eventos" element={<HostEventos />} />
+            <Route path="/host/beos" element={<HostBEOs />} />
+            <Route path="/host/salones" element={<HostSalones />} />
+            <Route path="/host/receptivos" element={<HostReceptivos />} />
+            <Route path="/host/configuracion" element={<HostConfiguracion />} />
             
             {/* Public CMS Routes */}
             <Route path="/pagina/:slug" element={<PublicPage />} />

@@ -18,6 +18,13 @@ import {
   Menu,
   Shield,
   Package,
+  Hotel,
+  ClipboardList,
+  CalendarRange,
+  FileBarChart,
+  Building2,
+  Handshake,
+  Wrench,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
@@ -44,6 +51,15 @@ const navItems: NavItem[] = [
   { label: 'Menús', icon: Menu, href: '/cms/menus', roles: ['ADMIN'] },
   { label: 'Widgets', icon: Package, href: '/cms/widgets', roles: ['ADMIN'] },
   { label: 'SuperAdmin', icon: Shield, href: '/superadmin', roles: ['ADMIN'] },
+  // Host Module
+  { label: 'Anfitrión', icon: Hotel, href: '/host', roles: ['ADMIN'] },
+  { label: 'Calendario Hotel', icon: CalendarRange, href: '/host/calendario', roles: ['ADMIN'] },
+  { label: 'Solicitudes', icon: ClipboardList, href: '/host/solicitudes', roles: ['ADMIN'] },
+  { label: 'Eventos Hotel', icon: Building2, href: '/host/eventos', roles: ['ADMIN'] },
+  { label: 'BEOs', icon: FileBarChart, href: '/host/beos', roles: ['ADMIN'] },
+  { label: 'Salones', icon: Building2, href: '/host/salones', roles: ['ADMIN'] },
+  { label: 'Receptivos', icon: Handshake, href: '/host/receptivos', roles: ['ADMIN'] },
+  { label: 'Config. Hotel', icon: Wrench, href: '/host/configuracion', roles: ['ADMIN'] },
   { label: 'Configuración', icon: Settings, href: '/settings', roles: ['USER', 'REVIEWER', 'COMMITTEE', 'ADMIN'] },
 ];
 
