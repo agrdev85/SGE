@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth, roleLabels } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { UserRole } from '@/lib/database';
 import {
   LayoutDashboard,
   FileText,
@@ -25,59 +26,77 @@ import {
   Building2,
   Handshake,
   Wrench,
+  BookOpen,
+  Bus,
+  BedDouble,
+  Briefcase,
+  UserCheck,
+  Eye,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { useState } from 'react';
 
 interface NavItem {
   label: string;
   icon: React.ElementType;
   href: string;
-  roles: string[];
+  roles: UserRole[];
+  section?: string;
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard', roles: ['USER', 'REVIEWER', 'COMMITTEE', 'ADMIN'] },
-  { label: 'Mis Resúmenes', icon: FileText, href: '/abstracts', roles: ['USER'] },
-  { label: 'Revisar', icon: ClipboardCheck, href: '/review', roles: ['REVIEWER'] },
-  { label: 'Comité', icon: Users, href: '/committee', roles: ['COMMITTEE', 'ADMIN'] },
-  { label: 'Programa', icon: CalendarDays, href: '/program', roles: ['COMMITTEE', 'ADMIN'] },
-  { label: 'Mi Programa', icon: CalendarCheck, href: '/my-program', roles: ['USER', 'REVIEWER'] },
-  { label: 'Gestión Eventos', icon: Calendar, href: '/events', roles: ['ADMIN'] },
-  { label: 'Usuarios', icon: Users, href: '/users', roles: ['ADMIN'] },
-  // CMS Menu Items
-  { label: 'Páginas CMS', icon: LayoutIcon, href: '/cms/pages', roles: ['ADMIN'] },
-  { label: 'Artículos', icon: Newspaper, href: '/cms/articles', roles: ['ADMIN'] },
-  { label: 'Menús', icon: Menu, href: '/cms/menus', roles: ['ADMIN'] },
-  { label: 'Widgets', icon: Package, href: '/cms/widgets', roles: ['ADMIN'] },
-  { label: 'SuperAdmin', icon: Shield, href: '/superadmin', roles: ['ADMIN'] },
+  // General
+  { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard', roles: ['USER', 'REVIEWER', 'COMMITTEE', 'ADMIN', 'SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA', 'COORDINADOR_HOTEL', 'LECTOR_RECEPTIVO', 'LECTOR_EMPRESA'], section: 'Principal' },
+  { label: 'Mis Resúmenes', icon: FileText, href: '/abstracts', roles: ['USER'], section: 'Principal' },
+  { label: 'Revisar', icon: ClipboardCheck, href: '/review', roles: ['REVIEWER'], section: 'Principal' },
+  { label: 'Comité', icon: Users, href: '/committee', roles: ['COMMITTEE', 'ADMIN', 'SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA', 'COORDINADOR_HOTEL'], section: 'Principal' },
+  { label: 'Programa', icon: CalendarDays, href: '/program', roles: ['COMMITTEE', 'ADMIN', 'SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA'], section: 'Principal' },
+  { label: 'Mi Programa', icon: CalendarCheck, href: '/my-program', roles: ['USER', 'REVIEWER'], section: 'Principal' },
+
+  // Gestión
+  { label: 'Gestión Eventos', icon: Calendar, href: '/events', roles: ['ADMIN', 'SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA'], section: 'Gestión' },
+  { label: 'Usuarios', icon: Users, href: '/users', roles: ['ADMIN', 'SUPERADMIN', 'ADMIN_RECEPTIVO'], section: 'Gestión' },
+
+  // CMS
+  { label: 'Páginas CMS', icon: LayoutIcon, href: '/cms/pages', roles: ['ADMIN', 'SUPERADMIN'], section: 'CMS' },
+  { label: 'Artículos', icon: Newspaper, href: '/cms/articles', roles: ['ADMIN', 'SUPERADMIN'], section: 'CMS' },
+  { label: 'Menús', icon: Menu, href: '/cms/menus', roles: ['ADMIN', 'SUPERADMIN'], section: 'CMS' },
+  { label: 'Widgets', icon: Package, href: '/cms/widgets', roles: ['ADMIN', 'SUPERADMIN'], section: 'CMS' },
+
+  // Nomencladores (SuperAdmin only)
+  { label: 'Nomencladores', icon: BookOpen, href: '/superadmin', roles: ['SUPERADMIN'], section: 'SuperAdmin' },
+
   // Host Module
-  { label: 'Anfitrión', icon: Hotel, href: '/host', roles: ['ADMIN'] },
-  { label: 'Calendario Hotel', icon: CalendarRange, href: '/host/calendario', roles: ['ADMIN'] },
-  { label: 'Solicitudes', icon: ClipboardList, href: '/host/solicitudes', roles: ['ADMIN'] },
-  { label: 'Eventos Hotel', icon: Building2, href: '/host/eventos', roles: ['ADMIN'] },
-  { label: 'BEOs', icon: FileBarChart, href: '/host/beos', roles: ['ADMIN'] },
-  { label: 'Salones', icon: Building2, href: '/host/salones', roles: ['ADMIN'] },
-  { label: 'Receptivos', icon: Handshake, href: '/host/receptivos', roles: ['ADMIN'] },
-  { label: 'Config. Hotel', icon: Wrench, href: '/host/configuracion', roles: ['ADMIN'] },
-  { label: 'Configuración', icon: Settings, href: '/settings', roles: ['USER', 'REVIEWER', 'COMMITTEE', 'ADMIN'] },
+  { label: 'Anfitrión', icon: Hotel, href: '/host', roles: ['ADMIN', 'SUPERADMIN', 'COORDINADOR_HOTEL'], section: 'Hotel' },
+  { label: 'Calendario Hotel', icon: CalendarRange, href: '/host/calendario', roles: ['ADMIN', 'SUPERADMIN', 'COORDINADOR_HOTEL'], section: 'Hotel' },
+  { label: 'Solicitudes', icon: ClipboardList, href: '/host/solicitudes', roles: ['ADMIN', 'SUPERADMIN', 'COORDINADOR_HOTEL'], section: 'Hotel' },
+  { label: 'Eventos Hotel', icon: Building2, href: '/host/eventos', roles: ['ADMIN', 'SUPERADMIN', 'COORDINADOR_HOTEL'], section: 'Hotel' },
+  { label: 'BEOs', icon: FileBarChart, href: '/host/beos', roles: ['ADMIN', 'SUPERADMIN', 'COORDINADOR_HOTEL'], section: 'Hotel' },
+  { label: 'Salones', icon: Building2, href: '/host/salones', roles: ['ADMIN', 'SUPERADMIN', 'COORDINADOR_HOTEL'], section: 'Hotel' },
+  { label: 'Receptivos', icon: Handshake, href: '/host/receptivos', roles: ['ADMIN', 'SUPERADMIN'], section: 'Hotel' },
+  { label: 'Config. Hotel', icon: Wrench, href: '/host/configuracion', roles: ['ADMIN', 'SUPERADMIN'], section: 'Hotel' },
+
+  // Settings
+  { label: 'Configuración', icon: Settings, href: '/settings', roles: ['USER', 'REVIEWER', 'COMMITTEE', 'ADMIN', 'SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA', 'COORDINADOR_HOTEL', 'LECTOR_RECEPTIVO', 'LECTOR_EMPRESA'], section: 'Sistema' },
 ];
 
 export function Sidebar() {
-  const { user, logout } = useAuth();
+  const { user, logout, isImpersonating, stopImpersonation, originalUser } = useAuth();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
 
-  const filteredItems = navItems.filter(item => 
-    user && item.roles.includes(user.role)
+  const filteredItems = navItems.filter(item =>
+    user && item.roles.includes(user.role as UserRole)
   );
 
-  const roleLabels: Record<string, string> = {
-    USER: 'Participante',
-    REVIEWER: 'Revisor',
-    COMMITTEE: 'Comité',
-    ADMIN: 'Administrador',
-  };
+  // Group by section
+  const sections = filteredItems.reduce((acc, item) => {
+    const section = item.section || 'Otros';
+    if (!acc[section]) acc[section] = [];
+    acc[section].push(item);
+    return acc;
+  }, {} as Record<string, NavItem[]>);
 
   return (
     <aside className={cn(
@@ -105,6 +124,19 @@ export function Sidebar() {
           </Button>
         </div>
 
+        {/* Impersonation Banner */}
+        {isImpersonating && !collapsed && (
+          <div className="border-b border-warning/30 bg-warning/10 p-3">
+            <div className="flex items-center gap-2 text-xs text-warning">
+              <Eye className="h-3.5 w-3.5" />
+              <span>Impersonando: <strong>{user?.name}</strong></span>
+            </div>
+            <Button variant="outline" size="sm" className="w-full mt-1.5 h-7 text-xs" onClick={stopImpersonation}>
+              Volver a {originalUser?.name}
+            </Button>
+          </div>
+        )}
+
         {/* User Info */}
         {!collapsed && user && (
           <div className="border-b border-border p-4">
@@ -114,35 +146,44 @@ export function Sidebar() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{user.name}</p>
-                <p className="text-xs text-muted-foreground">{roleLabels[user.role]}</p>
+                <Badge variant="outline" className="text-[10px] h-5 mt-0.5">
+                  {roleLabels[user.role as UserRole] || user.role}
+                </Badge>
               </div>
             </div>
           </div>
         )}
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-4">
-          <ul className="space-y-2">
-            {filteredItems.map((item) => {
-              const isActive = location.pathname === item.href;
-              return (
-                <li key={item.href}>
-                  <Link
-                    to={item.href}
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
-                      isActive 
-                        ? "bg-primary text-primary-foreground shadow-sm" 
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                  >
-                    <item.icon className="h-5 w-5 flex-shrink-0" />
-                    {!collapsed && <span>{item.label}</span>}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+        <nav className="flex-1 overflow-y-auto p-3">
+          {Object.entries(sections).map(([section, items]) => (
+            <div key={section} className="mb-3">
+              {!collapsed && (
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-3 mb-1.5">{section}</p>
+              )}
+              <ul className="space-y-0.5">
+                {items.map((item) => {
+                  const isActive = location.pathname === item.href;
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        to={item.href}
+                        className={cn(
+                          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
+                          isActive
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        )}
+                      >
+                        <item.icon className="h-4.5 w-4.5 flex-shrink-0" />
+                        {!collapsed && <span className="text-[13px]">{item.label}</span>}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
         </nav>
 
         {/* Logout */}
