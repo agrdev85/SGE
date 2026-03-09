@@ -47,6 +47,7 @@ const defaultRegistrationFields = [
 ];
 
 export default function Events() {
+  const { user: currentUser, isSuperAdmin, isAdmin, isAdminReceptivo, isAdminEmpresa, isCoordinadorHotel, isLector } = useAuth();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedMacro, setSelectedMacro] = useState<MacroEvent | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
