@@ -48,6 +48,12 @@ export default function Dashboard() {
     REVIEWER: 'Revisor',
     COMMITTEE: 'Miembro del Comité',
     ADMIN: 'Administrador',
+    SUPERADMIN: 'SuperAdmin',
+    ADMIN_RECEPTIVO: 'Admin Receptivo',
+    ADMIN_EMPRESA: 'Admin Empresa',
+    COORDINADOR_HOTEL: 'Coordinador Hotel',
+    LECTOR_RECEPTIVO: 'Lector Receptivo',
+    LECTOR_EMPRESA: 'Lector Empresa',
   };
 
   return (
