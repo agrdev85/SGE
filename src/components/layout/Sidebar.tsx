@@ -46,7 +46,7 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  // General
+  // Principal
   { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard', roles: ['USER', 'REVIEWER', 'COMMITTEE', 'ADMIN', 'SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA', 'COORDINADOR_HOTEL', 'LECTOR_RECEPTIVO', 'LECTOR_EMPRESA'], section: 'Principal' },
   { label: 'Mis Resúmenes', icon: FileText, href: '/abstracts', roles: ['USER'], section: 'Principal' },
   { label: 'Revisar', icon: ClipboardCheck, href: '/review', roles: ['REVIEWER'], section: 'Principal' },
@@ -54,8 +54,8 @@ const navItems: NavItem[] = [
   { label: 'Programa', icon: CalendarDays, href: '/program', roles: ['COMMITTEE', 'ADMIN', 'SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA'], section: 'Principal' },
   { label: 'Mi Programa', icon: CalendarCheck, href: '/my-program', roles: ['USER', 'REVIEWER'], section: 'Principal' },
 
-  // Gestión
-  { label: 'Gestión Eventos', icon: Calendar, href: '/events', roles: ['ADMIN', 'SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA'], section: 'Gestión' },
+  // Gestión (write access roles)
+  { label: 'Gestión Eventos', icon: Calendar, href: '/events', roles: ['ADMIN', 'SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA', 'COORDINADOR_HOTEL', 'LECTOR_RECEPTIVO', 'LECTOR_EMPRESA'], section: 'Gestión' },
   { label: 'Usuarios', icon: Users, href: '/users', roles: ['ADMIN', 'SUPERADMIN', 'ADMIN_RECEPTIVO'], section: 'Gestión' },
 
   // CMS
@@ -64,10 +64,10 @@ const navItems: NavItem[] = [
   { label: 'Menús', icon: Menu, href: '/cms/menus', roles: ['ADMIN', 'SUPERADMIN'], section: 'CMS' },
   { label: 'Widgets', icon: Package, href: '/cms/widgets', roles: ['ADMIN', 'SUPERADMIN'], section: 'CMS' },
 
-  // Nomencladores (SuperAdmin only)
+  // SuperAdmin
   { label: 'Nomencladores', icon: BookOpen, href: '/superadmin', roles: ['SUPERADMIN'], section: 'SuperAdmin' },
 
-  // Host Module
+  // Hotel Module
   { label: 'Anfitrión', icon: Hotel, href: '/host', roles: ['ADMIN', 'SUPERADMIN', 'COORDINADOR_HOTEL'], section: 'Hotel' },
   { label: 'Calendario Hotel', icon: CalendarRange, href: '/host/calendario', roles: ['ADMIN', 'SUPERADMIN', 'COORDINADOR_HOTEL'], section: 'Hotel' },
   { label: 'Solicitudes', icon: ClipboardList, href: '/host/solicitudes', roles: ['ADMIN', 'SUPERADMIN', 'COORDINADOR_HOTEL'], section: 'Hotel' },
