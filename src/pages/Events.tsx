@@ -93,11 +93,40 @@ export default function Events() {
   useEffect(() => { loadAll(); }, []);
 
   const loadAll = () => {
-    setMacroEvents(db.macroEvents.getAll());
-    setEvents(db.events.getAll());
+    let allMacros = db.macroEvents.getAll();
+    let allEvents = db.events.getAll();
+
+    // Data isolation per permission matrix
+    if (currentUser) {
+      if (currentUser.role === 'COORDINADOR_HOTEL') {
+        // Only see events assigned to their hotel
+        const eventoHoteles = db.eventoHoteles.getByHotel(currentUser.hotelId || '');
+        const macroIds = eventoHoteles.map(eh => eh.eventoId);
+        allMacros = allMacros.filter(me => macroIds.includes(me.id));
+        allEvents = allEvents.filter(e => macroIds.includes(e.macroEventId));
+      } else if (currentUser.role === 'ADMIN_RECEPTIVO' || currentUser.role === 'LECTOR_RECEPTIVO') {
+        allMacros = allMacros.filter(me => !(me as any).receptivoId || (me as any).receptivoId === currentUser.receptivoId);
+        allEvents = allEvents.filter(e => {
+          const macro = allMacros.find(m => m.id === e.macroEventId);
+          return !!macro;
+        });
+      } else if (currentUser.role === 'ADMIN_EMPRESA' || currentUser.role === 'LECTOR_EMPRESA') {
+        allMacros = allMacros.filter(me => !(me as any).empresaId || (me as any).empresaId === currentUser.empresaId);
+        allEvents = allEvents.filter(e => {
+          const macro = allMacros.find(m => m.id === e.macroEventId);
+          return !!macro;
+        });
+      }
+    }
+
+    setMacroEvents(allMacros);
+    setEvents(allEvents);
     setSessions(db.eventSessions.getAll());
     setIsLoading(false);
   };
+
+  const canEdit = !isLector && !isCoordinadorHotel;
+  const canCreate = isSuperAdmin || isAdmin || isAdminReceptivo || isAdminEmpresa;
 
   // ===== MACRO EVENT HANDLERS =====
   const openCreateMacro = () => {
