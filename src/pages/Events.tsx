@@ -74,6 +74,7 @@ export default function Events() {
     name: '', acronym: '', description: '', startDate: '', endDate: '', logoUrl: '',
     content: '', bannerImageUrl: '', backgroundImageUrl: '', registrationFields: [] as any[],
     primaryColor: '#1e40af', secondaryColor: '#059669', backgroundColor: '#f0f9ff',
+    receptivoId: '', empresaId: '',
   });
   const [eventForm, setEventForm] = useState({
     name: '', nameEn: '', description: '', macroEventId: '',
