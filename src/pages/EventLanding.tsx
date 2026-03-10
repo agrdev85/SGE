@@ -474,7 +474,7 @@ export default function EventLanding() {
                     <h3 className="text-xl font-bold mb-2">¿Necesitas ayuda?</h3>
                     <p className="text-white/80 text-sm mb-4">Contáctanos si tienes alguna duda</p>
                     <Button variant="secondary" asChild>
-                      <a href="mailto:info@scievent.com">Contactar</a>
+                      <a href="mailto:info@sigevent.com">Contactar</a>
                     </Button>
                   </CardContent>
                 </Card>
