@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { EventProvider } from "@/contexts/EventContext";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -20,19 +21,16 @@ import Settings from "./pages/Settings";
 import ProgramManager from "./pages/ProgramManager";
 import MyProgram from "./pages/MyProgram";
 import NotFound from "./pages/NotFound";
-// CMS Imports
 import CMSPagesManager from "./pages/CMSPagesManager";
 import CMSArticlesManager from "./pages/CMSArticlesManager";
 import CMSMenuManager from "./pages/CMSMenuManager";
 import CMSWidgetsManager from "./pages/CMSWidgetsManager";
 import SuperAdminPanel from "./pages/SuperAdminPanel";
-// Public CMS Pages
 import PublicPage from "./pages/PublicPage";
 import PublicArticle from "./pages/PublicArticle";
 import PublicBlog from "./pages/PublicBlog";
 import PublicCategory from "./pages/PublicCategory";
 import ScrollToTop from "./components/ScrollToTop";
-// Host Module
 import HostDashboard from "./pages/host/HostDashboard";
 import HostCalendar from "./pages/host/HostCalendar";
 import HostSolicitudes from "./pages/host/HostSolicitudes";
@@ -47,55 +45,50 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/abstracts" element={<Abstracts />} />
-            <Route path="/abstracts/new" element={<NewAbstract />} />
-            <Route path="/abstracts/edit/:abstractId" element={<EditAbstract />} />
-            <Route path="/event/:eventId" element={<EventLanding />} />
-            <Route path="/review" element={<Review />} />
-            <Route path="/committee" element={<Committee />} />
-            <Route path="/events" element={<Events />} />
-            <Route path="/users" element={<Users />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/program" element={<ProgramManager />} />
-            <Route path="/my-program" element={<MyProgram />} />
-            
-            {/* CMS Routes */}
-            <Route path="/cms/pages" element={<CMSPagesManager />} />
-            <Route path="/cms/articles" element={<CMSArticlesManager />} />
-            <Route path="/cms/menus" element={<CMSMenuManager />} />
-            <Route path="/cms/widgets" element={<CMSWidgetsManager />} />
-            <Route path="/superadmin" element={<SuperAdminPanel />} />
-            
-            {/* Host Module Routes */}
-            <Route path="/host" element={<HostDashboard />} />
-            <Route path="/host/calendario" element={<HostCalendar />} />
-            <Route path="/host/solicitudes" element={<HostSolicitudes />} />
-            <Route path="/host/eventos" element={<HostEventos />} />
-            <Route path="/host/beos" element={<HostBEOs />} />
-            <Route path="/host/salones" element={<HostSalones />} />
-            <Route path="/host/receptivos" element={<HostReceptivos />} />
-            <Route path="/host/configuracion" element={<HostConfiguracion />} />
-            
-            {/* Public CMS Routes */}
-            <Route path="/pagina/:slug" element={<PublicPage />} />
-            <Route path="/articulo/:slug" element={<PublicArticle />} />
-            <Route path="/blog" element={<PublicBlog />} />
-            <Route path="/categoria/:slug" element={<PublicCategory />} />
-            
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          <ScrollToTop />
-        </BrowserRouter>
-      </TooltipProvider>
+      <EventProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/abstracts" element={<Abstracts />} />
+              <Route path="/abstracts/new" element={<NewAbstract />} />
+              <Route path="/abstracts/edit/:abstractId" element={<EditAbstract />} />
+              <Route path="/event/:eventId" element={<EventLanding />} />
+              <Route path="/review" element={<Review />} />
+              <Route path="/committee" element={<Committee />} />
+              <Route path="/events" element={<Events />} />
+              <Route path="/users" element={<Users />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/program" element={<ProgramManager />} />
+              <Route path="/my-program" element={<MyProgram />} />
+              <Route path="/cms/pages" element={<CMSPagesManager />} />
+              <Route path="/cms/articles" element={<CMSArticlesManager />} />
+              <Route path="/cms/menus" element={<CMSMenuManager />} />
+              <Route path="/cms/widgets" element={<CMSWidgetsManager />} />
+              <Route path="/superadmin" element={<SuperAdminPanel />} />
+              <Route path="/host" element={<HostDashboard />} />
+              <Route path="/host/calendario" element={<HostCalendar />} />
+              <Route path="/host/solicitudes" element={<HostSolicitudes />} />
+              <Route path="/host/eventos" element={<HostEventos />} />
+              <Route path="/host/beos" element={<HostBEOs />} />
+              <Route path="/host/salones" element={<HostSalones />} />
+              <Route path="/host/receptivos" element={<HostReceptivos />} />
+              <Route path="/host/configuracion" element={<HostConfiguracion />} />
+              <Route path="/pagina/:slug" element={<PublicPage />} />
+              <Route path="/articulo/:slug" element={<PublicArticle />} />
+              <Route path="/blog" element={<PublicBlog />} />
+              <Route path="/categoria/:slug" element={<PublicCategory />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+            <ScrollToTop />
+          </BrowserRouter>
+        </TooltipProvider>
+      </EventProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
