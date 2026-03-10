@@ -30,7 +30,7 @@ export function seedCMSData() {
   const scienceCategory = db.cmsCategories.create({
     name: 'Ciencia',
     slug: 'ciencia',
-    description: 'Descubrimientos y avances científicos',
+    description: 'Descubrimientos y avances',
     orderIndex: 2,
   });
 
