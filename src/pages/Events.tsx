@@ -135,7 +135,8 @@ export default function Events() {
     setMacroForm({ 
       name: '', acronym: '', description: '', startDate: '', endDate: '', logoUrl: '', 
       content: '', bannerImageUrl: '', backgroundImageUrl: '', registrationFields: [],
-      primaryColor: '#1e40af', secondaryColor: '#059669', backgroundColor: '#f0f9ff' 
+      primaryColor: '#1e40af', secondaryColor: '#059669', backgroundColor: '#f0f9ff',
+      receptivoId: currentUser?.receptivoId || '', empresaId: currentUser?.empresaId || '',
     });
     setActiveMacroTab('basic');
     setIsMacroDialogOpen(true);
