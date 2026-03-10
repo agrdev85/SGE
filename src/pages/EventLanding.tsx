@@ -300,7 +300,7 @@ export default function EventLanding() {
             >
               <Beaker className="h-5 w-5 text-white" />
             </div>
-            <span className="font-display font-bold text-xl">SciEvent</span>
+            <span className="font-display font-bold text-xl">SigEvent</span>
           </Link>
           <div className="flex items-center gap-3">
             <Button variant="ghost" asChild>
