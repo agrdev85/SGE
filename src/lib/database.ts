@@ -152,6 +152,8 @@ export interface MacroEvent {
   secondaryColor?: string;
   backgroundColor?: string;
   registrationFields?: FormField[];
+  receptivoId?: string; // FK to NomReceptivo - data isolation
+  empresaId?: string; // FK to NomEmpresa - data isolation
   isActive: boolean;
   createdAt: string;
 }
