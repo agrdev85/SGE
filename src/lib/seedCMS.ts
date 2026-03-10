@@ -73,10 +73,10 @@ export function seedCMSData() {
     slug: 'acerca',
     content: `
       <h1>Sobre el Sistema</h1>
-      <p>Este sistema fue desarrollado para facilitar la gestión integral de eventos científicos y académicos.</p>
+      <p>Este sistema fue desarrollado para facilitar la gestión integral de eventos y actividades.</p>
       
       <h2>Misión</h2>
-      <p>Proporcionar una plataforma moderna, eficiente y fácil de usar para la organización de congresos científicos.</p>
+      <p>Proporcionar una plataforma moderna, eficiente y fácil de usar para la organización de congresos y eventos.</p>
       
       <h2>Visión</h2>
       <p>Ser la herramienta líder en la gestión de eventos académicos en América Latina.</p>
