@@ -486,7 +486,7 @@ export default function EventLanding() {
       {/* Footer */}
       <footer className="py-8 border-t bg-background/50">
         <div className="container mx-auto px-4 text-center text-muted-foreground text-sm">
-          <p>© 2024 SciEvent. Sistema de Gestión de Eventos Científicos.</p>
+          <p>© 2024 SigEvent. Sistema de Gestión de Eventos.</p>
         </div>
       </footer>
     </div>
