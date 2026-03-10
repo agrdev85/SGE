@@ -64,7 +64,7 @@ export function seedCMSData() {
     status: 'published',
     author: 'admin',
     metaTitle: 'Sistema de Gestión de Eventos - Inicio',
-    metaDescription: 'Plataforma completa para gestionar eventos científicos y académicos',
+    metaDescription: 'Plataforma completa para gestionar eventos y actividades',
     publishedAt: new Date().toISOString(),
   });
 
