@@ -74,6 +74,7 @@ export default function Events() {
     name: '', acronym: '', description: '', startDate: '', endDate: '', logoUrl: '',
     content: '', bannerImageUrl: '', backgroundImageUrl: '', registrationFields: [] as any[],
     primaryColor: '#1e40af', secondaryColor: '#059669', backgroundColor: '#f0f9ff',
+    receptivoId: '', empresaId: '',
   });
   const [eventForm, setEventForm] = useState({
     name: '', nameEn: '', description: '', macroEventId: '',
@@ -134,7 +135,8 @@ export default function Events() {
     setMacroForm({ 
       name: '', acronym: '', description: '', startDate: '', endDate: '', logoUrl: '', 
       content: '', bannerImageUrl: '', backgroundImageUrl: '', registrationFields: [],
-      primaryColor: '#1e40af', secondaryColor: '#059669', backgroundColor: '#f0f9ff' 
+      primaryColor: '#1e40af', secondaryColor: '#059669', backgroundColor: '#f0f9ff',
+      receptivoId: currentUser?.receptivoId || '', empresaId: currentUser?.empresaId || '',
     });
     setActiveMacroTab('basic');
     setIsMacroDialogOpen(true);
@@ -152,6 +154,8 @@ export default function Events() {
       primaryColor: (me as any).primaryColor || '#1e40af',
       secondaryColor: (me as any).secondaryColor || '#059669',
       backgroundColor: (me as any).backgroundColor || '#f0f9ff',
+      receptivoId: me.receptivoId || '',
+      empresaId: me.empresaId || '',
     });
     setActiveMacroTab('basic');
     setIsMacroDialogOpen(true);
@@ -448,6 +452,33 @@ export default function Events() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>Fecha/Hora Inicio *</Label><Input type="datetime-local" value={macroForm.startDate} onChange={e => setMacroForm({ ...macroForm, startDate: e.target.value })} /></div>
                 <div className="space-y-2"><Label>Fecha/Hora Fin *</Label><Input type="datetime-local" value={macroForm.endDate} onChange={e => setMacroForm({ ...macroForm, endDate: e.target.value })} /></div>
+              </div>
+              {/* Receptivo & Empresa */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Receptivo</Label>
+                  <Select value={macroForm.receptivoId} onValueChange={v => setMacroForm({ ...macroForm, receptivoId: v, empresaId: '' })}>
+                    <SelectTrigger><SelectValue placeholder="Seleccionar receptivo..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">— Sin receptivo —</SelectItem>
+                      {db.nomReceptivos.getActivos().map(r => (
+                        <SelectItem key={r.id} value={r.id}>{r.siglas} — {r.nombre}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Empresa</Label>
+                  <Select value={macroForm.empresaId} onValueChange={v => setMacroForm({ ...macroForm, empresaId: v })} disabled={!macroForm.receptivoId || macroForm.receptivoId === 'none'}>
+                    <SelectTrigger><SelectValue placeholder="Seleccionar empresa..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">— Sin empresa —</SelectItem>
+                      {db.nomEmpresas.getByReceptivo(macroForm.receptivoId).filter(e => e.activo).map(e => (
+                        <SelectItem key={e.id} value={e.id}>{e.codigo} — {e.nombre}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </TabsContent>
             <TabsContent value="content" className="mt-4">

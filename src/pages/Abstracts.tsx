@@ -50,7 +50,7 @@ export default function Abstracts() {
           <div>
             <h1 className="text-3xl font-display font-bold">Mis Resúmenes</h1>
             <p className="text-muted-foreground mt-1">
-              Gestiona tus envíos de trabajos científicos
+              Gestiona tus envíos de trabajos
             </p>
           </div>
           <Button variant="hero" asChild>
