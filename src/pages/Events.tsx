@@ -154,6 +154,8 @@ export default function Events() {
       primaryColor: (me as any).primaryColor || '#1e40af',
       secondaryColor: (me as any).secondaryColor || '#059669',
       backgroundColor: (me as any).backgroundColor || '#f0f9ff',
+      receptivoId: me.receptivoId || '',
+      empresaId: me.empresaId || '',
     });
     setActiveMacroTab('basic');
     setIsMacroDialogOpen(true);
