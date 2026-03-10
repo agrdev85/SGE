@@ -383,7 +383,7 @@ export function seedCMSData() {
   // 6. Configuraciones del Sistema
   db.cmsSettings.update({
     siteName: 'Sistema de Gestión de Eventos',
-    siteDescription: 'Plataforma integral para eventos científicos',
+    siteDescription: 'Plataforma integral para eventos',
     primaryColor: '#3B82F6',
     secondaryColor: '#10B981',
     contactInfo: {
