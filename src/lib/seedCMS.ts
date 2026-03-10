@@ -138,7 +138,7 @@ export function seedCMSData() {
         <li>Recepción y gestión de abstracts</li>
         <li>Asignación de revisores</li>
         <li>Proceso de revisión por pares</li>
-        <li>Gestión del programa científico</li>
+        <li>Gestión del programa</li>
         <li>Panel administrativo SuperAdmin</li>
       </ul>
       
