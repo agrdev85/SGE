@@ -461,7 +461,7 @@ export default function Events() {
                     <SelectTrigger><SelectValue placeholder="Seleccionar receptivo..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">— Sin receptivo —</SelectItem>
-                      {db.nomencladores.receptivos.getAll().filter(r => r.activo).map(r => (
+                      {db.nomReceptivos.getActivos().map(r => (
                         <SelectItem key={r.id} value={r.id}>{r.siglas} — {r.nombre}</SelectItem>
                       ))}
                     </SelectContent>
@@ -473,7 +473,7 @@ export default function Events() {
                     <SelectTrigger><SelectValue placeholder="Seleccionar empresa..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">— Sin empresa —</SelectItem>
-                      {db.nomencladores.empresas.getAll().filter(e => e.activo && e.receptivoId === macroForm.receptivoId).map(e => (
+                      {db.nomEmpresas.getByReceptivo(macroForm.receptivoId).filter(e => e.activo).map(e => (
                         <SelectItem key={e.id} value={e.id}>{e.codigo} — {e.nombre}</SelectItem>
                       ))}
                     </SelectContent>
