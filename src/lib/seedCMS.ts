@@ -127,10 +127,10 @@ export function seedCMSData() {
   db.cmsArticles.create({
     title: 'Introducción al Sistema de Gestión de Eventos',
     slug: 'introduccion-sistema',
-    excerpt: 'Descubre cómo nuestro sistema puede transformar la organización de tus eventos científicos.',
+    excerpt: 'Descubre cómo nuestro sistema puede transformar la organización de tus eventos.',
     content: `
       <h2>¿Qué es el Sistema de Gestión de Eventos?</h2>
-      <p>Nuestro sistema es una plataforma integral diseñada específicamente para la gestión de congresos, simposios y eventos científicos.</p>
+      <p>Nuestro sistema es una plataforma integral diseñada para la gestión de congresos, simposios y eventos de todo tipo.</p>
       
       <h3>Características Principales</h3>
       <p>El sistema incluye módulos para:</p>
