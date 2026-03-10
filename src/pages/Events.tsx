@@ -453,6 +453,33 @@ export default function Events() {
                 <div className="space-y-2"><Label>Fecha/Hora Inicio *</Label><Input type="datetime-local" value={macroForm.startDate} onChange={e => setMacroForm({ ...macroForm, startDate: e.target.value })} /></div>
                 <div className="space-y-2"><Label>Fecha/Hora Fin *</Label><Input type="datetime-local" value={macroForm.endDate} onChange={e => setMacroForm({ ...macroForm, endDate: e.target.value })} /></div>
               </div>
+              {/* Receptivo & Empresa */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Receptivo</Label>
+                  <Select value={macroForm.receptivoId} onValueChange={v => setMacroForm({ ...macroForm, receptivoId: v, empresaId: '' })}>
+                    <SelectTrigger><SelectValue placeholder="Seleccionar receptivo..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">— Sin receptivo —</SelectItem>
+                      {db.nomencladores.receptivos.getAll().filter(r => r.activo).map(r => (
+                        <SelectItem key={r.id} value={r.id}>{r.siglas} — {r.nombre}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Empresa</Label>
+                  <Select value={macroForm.empresaId} onValueChange={v => setMacroForm({ ...macroForm, empresaId: v })} disabled={!macroForm.receptivoId || macroForm.receptivoId === 'none'}>
+                    <SelectTrigger><SelectValue placeholder="Seleccionar empresa..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">— Sin empresa —</SelectItem>
+                      {db.nomencladores.empresas.getAll().filter(e => e.activo && e.receptivoId === macroForm.receptivoId).map(e => (
+                        <SelectItem key={e.id} value={e.id}>{e.codigo} — {e.nombre}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </TabsContent>
             <TabsContent value="content" className="mt-4">
               <EventContentEditor
