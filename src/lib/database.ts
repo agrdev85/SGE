@@ -4,7 +4,7 @@
 import { toast } from "sonner";
 
 // Types
-export type UserRole = 'USER' | 'REVIEWER' | 'COMMITTEE' | 'ADMIN' | 'SUPERADMIN' | 'ADMIN_RECEPTIVO' | 'ADMIN_EMPRESA' | 'COORDINADOR_HOTEL' | 'LECTOR_RECEPTIVO' | 'LECTOR_EMPRESA';
+export type UserRole = 'USER' | 'REVIEWER' | 'COMMITTEE' | 'SUPERADMIN' | 'ADMIN_RECEPTIVO' | 'ADMIN_EMPRESA' | 'COORDINADOR_HOTEL' | 'LECTOR_RECEPTIVO' | 'LECTOR_EMPRESA';
 
 export interface User {
   id: string;
