@@ -27,11 +27,15 @@ export default function Login() {
   };
 
   const demoAccounts = [
-    { email: 'maria@example.com', role: 'Participante', color: 'bg-primary' },
-    { email: 'carlos@example.com', role: 'Revisor', color: 'bg-info' },
-    { email: 'ana@example.com', role: 'Comité', color: 'bg-accent' },
     { email: 'superadmin@example.com', role: 'SuperAdmin', color: 'bg-destructive' },
-    { email: 'admin@havanatur.cu', role: 'Admin Receptivo', color: 'bg-info' },
+    { email: 'admin@havanatur.cu', role: 'Admin Receptivo', color: 'bg-chart-1' },
+    { email: 'admin@havanatur-varadero.cu', role: 'Admin Empresa', color: 'bg-chart-2' },
+    { email: 'coordinador@meliavaradero.cu', role: 'Coord. Hotel', color: 'bg-chart-3' },
+    { email: 'lector@cubatur.cu', role: 'Lector Receptivo', color: 'bg-chart-4' },
+    { email: 'lector@cubatur-events.cu', role: 'Lector Empresa', color: 'bg-chart-5' },
+    { email: 'maria@example.com', role: 'Participante', color: 'bg-primary' },
+    { email: 'carlos@example.com', role: 'Revisor', color: 'bg-accent' },
+    { email: 'ana@example.com', role: 'Comité', color: 'bg-secondary' },
   ];
 
   return (
