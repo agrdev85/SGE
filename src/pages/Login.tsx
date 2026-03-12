@@ -90,7 +90,7 @@ export default function Login() {
           {/* Demo Accounts */}
           <div className="mt-6 p-4 rounded-xl bg-white/10 backdrop-blur-sm border border-green-500/20">
             <p className="text-xs font-medium text-gray-300 mb-3">Cuentas de demostración (clic para usar):</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {demoAccounts.map((account) => (
                 <button key={account.email} onClick={() => setEmail(account.email)} className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/10 transition-colors text-left border border-green-500/10">
                   <div className={`h-2 w-2 rounded-full ${account.color}`} />
