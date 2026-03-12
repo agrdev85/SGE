@@ -107,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const impersonateUser = (userId: string) => {
-    if (!user || (user.role !== 'SUPERADMIN' && user.role !== 'ADMIN')) return;
+    if (!user || user.role !== 'SUPERADMIN') return;
     const target = db.users.getById(userId);
     if (!target) { toast.error('Usuario no encontrado'); return; }
     // Log audit
