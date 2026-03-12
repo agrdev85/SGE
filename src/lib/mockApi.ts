@@ -8,12 +8,15 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'USER' | 'REVIEWER' | 'COMMITTEE' | 'SUPERADMIN';
+  role: 'USER' | 'REVIEWER' | 'COMMITTEE' | 'SUPERADMIN' | 'ADMIN_RECEPTIVO' | 'ADMIN_EMPRESA' | 'COORDINADOR_HOTEL' | 'LECTOR_RECEPTIVO' | 'LECTOR_EMPRESA';
   country: string;
   affiliation: string;
   createdAt: string;
   isActive: boolean;
   avatar?: string;
+  receptivoId?: string;
+  empresaId?: string;
+  hotelId?: string;
 }
 
 export interface Event {
