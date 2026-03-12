@@ -134,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const role = user?.role;
   const isSuperAdmin = role === 'SUPERADMIN';
-  const isAdmin = role === 'ADMIN' || isSuperAdmin;
+  const isAdmin = isSuperAdmin; // ADMIN role removed, SuperAdmin has full control
   const isAdminReceptivo = role === 'ADMIN_RECEPTIVO';
   const isAdminEmpresa = role === 'ADMIN_EMPRESA';
   const isCoordinadorHotel = role === 'COORDINADOR_HOTEL';

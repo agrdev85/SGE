@@ -2537,7 +2537,6 @@ class Database {
     const data = this.getCollection<T>(collection);
     switch (user.role) {
       case 'SUPERADMIN':
-      case 'ADMIN':
         return data; // Full access
       case 'ADMIN_RECEPTIVO':
       case 'LECTOR_RECEPTIVO':
