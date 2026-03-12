@@ -94,9 +94,9 @@ let mockUsers: User[] = [
   },
   {
     id: '4',
-    name: 'Admin Sistema',
-    email: 'admin@example.com',
-    role: 'ADMIN',
+    name: 'SuperAdmin Sistema',
+    email: 'superadmin@example.com',
+    role: 'SUPERADMIN',
     country: 'Cuba',
     affiliation: 'Sistema',
     createdAt: '2024-01-01',
