@@ -299,10 +299,10 @@ const SuperAdminPanel: React.FC = () => {
               <Card><CardHeader><CardTitle>Matriz de Roles</CardTitle></CardHeader><CardContent>
                 <Table><TableHeader><TableRow><TableHead>Rol</TableHead><TableHead>Alcance</TableHead><TableHead>Usuarios</TableHead></TableRow></TableHeader>
                 <TableBody>
-                  {(['SUPERADMIN', 'ADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA', 'COORDINADOR_HOTEL', 'LECTOR_RECEPTIVO', 'LECTOR_EMPRESA', 'COMMITTEE', 'REVIEWER', 'USER'] as UserRole[]).map(role => (
+                  {(['SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA', 'COORDINADOR_HOTEL', 'LECTOR_RECEPTIVO', 'LECTOR_EMPRESA', 'COMMITTEE', 'REVIEWER', 'USER'] as UserRole[]).map(role => (
                     <TableRow key={role}><TableCell><Badge variant="outline">{roleLabels[role]}</Badge></TableCell>
                     <TableCell className="text-xs text-muted-foreground">{
-                      role === 'SUPERADMIN' ? 'Global' : role === 'ADMIN' ? 'Global' : role === 'ADMIN_RECEPTIVO' ? 'Su receptivo' : role === 'ADMIN_EMPRESA' ? 'Su empresa' : role === 'COORDINADOR_HOTEL' ? 'Eventos en su hotel' : role.includes('LECTOR') ? 'Solo lectura' : 'Funciones específicas'
+                      role === 'SUPERADMIN' ? 'Global' : role === 'ADMIN_RECEPTIVO' ? 'Su receptivo' : role === 'ADMIN_EMPRESA' ? 'Su empresa' : role === 'COORDINADOR_HOTEL' ? 'Eventos en su hotel' : role.includes('LECTOR') ? 'Solo lectura' : 'Funciones específicas'
                     }</TableCell>
                     <TableCell className="text-center font-bold">{users.filter(u => u.role === role).length}</TableCell></TableRow>
                   ))}

@@ -88,7 +88,6 @@ export default function Users() {
     // Apply data isolation per permission matrix
     switch (currentUser.role) {
       case 'SUPERADMIN':
-      case 'ADMIN':
         break; // See all
       case 'ADMIN_RECEPTIVO':
         // Only see users of their receptivo (R02, R03, R04, R05, R06 roles)
