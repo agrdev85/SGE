@@ -459,7 +459,7 @@ const SuperAdminPanel: React.FC = () => {
                       <Select value={u.role} onValueChange={(v: UserRole) => changeUserRole(u.id, v)}>
                         <SelectTrigger className="w-44 h-8 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {(['SUPERADMIN', 'ADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA', 'COORDINADOR_HOTEL', 'LECTOR_RECEPTIVO', 'LECTOR_EMPRESA', 'COMMITTEE', 'REVIEWER', 'USER'] as UserRole[]).map(role => (
+                          {(['SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA', 'COORDINADOR_HOTEL', 'LECTOR_RECEPTIVO', 'LECTOR_EMPRESA', 'COMMITTEE', 'REVIEWER', 'USER'] as UserRole[]).map(role => (
                             <SelectItem key={role} value={role}>{roleLabels[role]}</SelectItem>
                           ))}
                         </SelectContent>

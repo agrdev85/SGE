@@ -381,7 +381,7 @@ export const statsApi = {
     events: number;
   }> {
     await delay(300);
-    const userAbstracts = role === 'ADMIN' || role === 'COMMITTEE' 
+    const userAbstracts = role === 'SUPERADMIN' || role === 'COMMITTEE' 
       ? mockAbstracts 
       : mockAbstracts.filter(a => a.userId === userId);
     
