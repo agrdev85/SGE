@@ -628,6 +628,47 @@ class Database {
         isActive: true,
         hotelId: 'nh1',
       });
+      // Add sample ADMIN_EMPRESA
+      users.push({
+        id: 'admin_emp1',
+        name: 'Admin Havanatur Varadero',
+        email: 'admin@havanatur-varadero.cu',
+        passwordHash: 'demo',
+        role: 'ADMIN_EMPRESA',
+        country: 'Cuba',
+        affiliation: 'Havanatur Sucursal Varadero',
+        createdAt: '2024-01-01',
+        isActive: true,
+        receptivoId: 'nr1',
+        empresaId: 'ne1',
+      });
+      // Add sample LECTOR_RECEPTIVO
+      users.push({
+        id: 'lector_rec1',
+        name: 'Lector Cubatur',
+        email: 'lector@cubatur.cu',
+        passwordHash: 'demo',
+        role: 'LECTOR_RECEPTIVO',
+        country: 'Cuba',
+        affiliation: 'Cubatur',
+        createdAt: '2024-01-01',
+        isActive: true,
+        receptivoId: 'nr2',
+      });
+      // Add sample LECTOR_EMPRESA
+      users.push({
+        id: 'lector_emp1',
+        name: 'Lector Cubatur Events',
+        email: 'lector@cubatur-events.cu',
+        passwordHash: 'demo',
+        role: 'LECTOR_EMPRESA',
+        country: 'Cuba',
+        affiliation: 'Cubatur Events',
+        createdAt: '2024-01-01',
+        isActive: true,
+        receptivoId: 'nr2',
+        empresaId: 'ne3',
+      });
       this.setCollection('users', users);
     }
   }

@@ -8,12 +8,15 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'USER' | 'REVIEWER' | 'COMMITTEE' | 'SUPERADMIN';
+  role: 'USER' | 'REVIEWER' | 'COMMITTEE' | 'SUPERADMIN' | 'ADMIN_RECEPTIVO' | 'ADMIN_EMPRESA' | 'COORDINADOR_HOTEL' | 'LECTOR_RECEPTIVO' | 'LECTOR_EMPRESA';
   country: string;
   affiliation: string;
   createdAt: string;
   isActive: boolean;
   avatar?: string;
+  receptivoId?: string;
+  empresaId?: string;
+  hotelId?: string;
 }
 
 export interface Event {
@@ -101,6 +104,63 @@ let mockUsers: User[] = [
     affiliation: 'Sistema',
     createdAt: '2024-01-01',
     isActive: true,
+  },
+  {
+    id: '5',
+    name: 'Admin Havanatur',
+    email: 'admin@havanatur.cu',
+    role: 'ADMIN_RECEPTIVO',
+    country: 'Cuba',
+    affiliation: 'Havanatur',
+    createdAt: '2024-01-01',
+    isActive: true,
+    receptivoId: 'nr1',
+  },
+  {
+    id: '6',
+    name: 'Admin Havanatur Varadero',
+    email: 'admin@havanatur-varadero.cu',
+    role: 'ADMIN_EMPRESA',
+    country: 'Cuba',
+    affiliation: 'Havanatur Sucursal Varadero',
+    createdAt: '2024-01-01',
+    isActive: true,
+    receptivoId: 'nr1',
+    empresaId: 'ne1',
+  },
+  {
+    id: '7',
+    name: 'Coord. Meliá Varadero',
+    email: 'coordinador@meliavaradero.cu',
+    role: 'COORDINADOR_HOTEL',
+    country: 'Cuba',
+    affiliation: 'Meliá Internacional',
+    createdAt: '2024-01-01',
+    isActive: true,
+    hotelId: 'nh1',
+  },
+  {
+    id: '8',
+    name: 'Lector Cubatur',
+    email: 'lector@cubatur.cu',
+    role: 'LECTOR_RECEPTIVO',
+    country: 'Cuba',
+    affiliation: 'Cubatur',
+    createdAt: '2024-01-01',
+    isActive: true,
+    receptivoId: 'nr2',
+  },
+  {
+    id: '9',
+    name: 'Lector Cubatur Events',
+    email: 'lector@cubatur-events.cu',
+    role: 'LECTOR_EMPRESA',
+    country: 'Cuba',
+    affiliation: 'Cubatur Events',
+    createdAt: '2024-01-01',
+    isActive: true,
+    receptivoId: 'nr2',
+    empresaId: 'ne3',
   },
 ];
 

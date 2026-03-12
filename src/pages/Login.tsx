@@ -27,11 +27,15 @@ export default function Login() {
   };
 
   const demoAccounts = [
-    { email: 'maria@example.com', role: 'Participante', color: 'bg-primary' },
-    { email: 'carlos@example.com', role: 'Revisor', color: 'bg-info' },
-    { email: 'ana@example.com', role: 'Comité', color: 'bg-accent' },
     { email: 'superadmin@example.com', role: 'SuperAdmin', color: 'bg-destructive' },
-    { email: 'admin@havanatur.cu', role: 'Admin Receptivo', color: 'bg-info' },
+    { email: 'admin@havanatur.cu', role: 'Admin Receptivo', color: 'bg-chart-1' },
+    { email: 'admin@havanatur-varadero.cu', role: 'Admin Empresa', color: 'bg-chart-2' },
+    { email: 'coordinador@meliavaradero.cu', role: 'Coord. Hotel', color: 'bg-chart-3' },
+    { email: 'lector@cubatur.cu', role: 'Lector Receptivo', color: 'bg-chart-4' },
+    { email: 'lector@cubatur-events.cu', role: 'Lector Empresa', color: 'bg-chart-5' },
+    { email: 'maria@example.com', role: 'Participante', color: 'bg-primary' },
+    { email: 'carlos@example.com', role: 'Revisor', color: 'bg-accent' },
+    { email: 'ana@example.com', role: 'Comité', color: 'bg-secondary' },
   ];
 
   return (
@@ -86,7 +90,7 @@ export default function Login() {
           {/* Demo Accounts */}
           <div className="mt-6 p-4 rounded-xl bg-white/10 backdrop-blur-sm border border-green-500/20">
             <p className="text-xs font-medium text-gray-300 mb-3">Cuentas de demostración (clic para usar):</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {demoAccounts.map((account) => (
                 <button key={account.email} onClick={() => setEmail(account.email)} className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/10 transition-colors text-left border border-green-500/10">
                   <div className={`h-2 w-2 rounded-full ${account.color}`} />
