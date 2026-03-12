@@ -32,7 +32,6 @@ const roleLabels: Record<UserRole, string> = {
   USER: 'Participante',
   REVIEWER: 'Revisor',
   COMMITTEE: 'Comité',
-  ADMIN: 'Administrador',
   SUPERADMIN: 'SuperAdmin',
   ADMIN_RECEPTIVO: 'Admin Receptivo',
   ADMIN_EMPRESA: 'Admin Empresa',
