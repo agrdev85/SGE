@@ -32,7 +32,6 @@ const roleLabels: Record<UserRole, string> = {
   USER: 'Participante',
   REVIEWER: 'Revisor',
   COMMITTEE: 'Comité',
-  ADMIN: 'Administrador',
   SUPERADMIN: 'SuperAdmin',
   ADMIN_RECEPTIVO: 'Admin Receptivo',
   ADMIN_EMPRESA: 'Admin Empresa',
@@ -108,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const impersonateUser = (userId: string) => {
-    if (!user || (user.role !== 'SUPERADMIN' && user.role !== 'ADMIN')) return;
+    if (!user || user.role !== 'SUPERADMIN') return;
     const target = db.users.getById(userId);
     if (!target) { toast.error('Usuario no encontrado'); return; }
     // Log audit
@@ -135,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const role = user?.role;
   const isSuperAdmin = role === 'SUPERADMIN';
-  const isAdmin = role === 'ADMIN' || isSuperAdmin;
+  const isAdmin = isSuperAdmin; // ADMIN role removed, SuperAdmin has full control
   const isAdminReceptivo = role === 'ADMIN_RECEPTIVO';
   const isAdminEmpresa = role === 'ADMIN_EMPRESA';
   const isCoordinadorHotel = role === 'COORDINADOR_HOTEL';

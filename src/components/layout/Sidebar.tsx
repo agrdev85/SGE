@@ -24,38 +24,38 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   // Principal
-  { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard', roles: ['USER', 'REVIEWER', 'COMMITTEE', 'ADMIN', 'SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA', 'COORDINADOR_HOTEL', 'LECTOR_RECEPTIVO', 'LECTOR_EMPRESA'], section: 'Principal' },
+  { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard', roles: ['USER', 'REVIEWER', 'COMMITTEE', 'SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA', 'COORDINADOR_HOTEL', 'LECTOR_RECEPTIVO', 'LECTOR_EMPRESA'], section: 'Principal' },
   { label: 'Mis Resúmenes', icon: FileText, href: '/abstracts', roles: ['USER'], section: 'Principal' },
   { label: 'Revisar', icon: ClipboardCheck, href: '/review', roles: ['REVIEWER'], section: 'Principal' },
-  { label: 'Comité', icon: Users, href: '/committee', roles: ['COMMITTEE', 'ADMIN', 'SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA', 'COORDINADOR_HOTEL'], section: 'Principal' },
-  { label: 'Programa', icon: CalendarDays, href: '/program', roles: ['COMMITTEE', 'ADMIN', 'SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA'], section: 'Principal' },
+  { label: 'Comité', icon: Users, href: '/committee', roles: ['COMMITTEE', 'SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA', 'COORDINADOR_HOTEL'], section: 'Principal' },
+  { label: 'Programa', icon: CalendarDays, href: '/program', roles: ['COMMITTEE', 'SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA'], section: 'Principal' },
   { label: 'Mi Programa', icon: CalendarCheck, href: '/my-program', roles: ['USER', 'REVIEWER'], section: 'Principal' },
 
   // Gestión
-  { label: 'Gestión Eventos', icon: Calendar, href: '/events', roles: ['ADMIN', 'SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA', 'COORDINADOR_HOTEL', 'LECTOR_RECEPTIVO', 'LECTOR_EMPRESA'], section: 'Gestión' },
-  { label: 'Usuarios', icon: Users, href: '/users', roles: ['ADMIN', 'SUPERADMIN', 'ADMIN_RECEPTIVO'], section: 'Gestión' },
+  { label: 'Gestión Eventos', icon: Calendar, href: '/events', roles: ['SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA', 'COORDINADOR_HOTEL', 'LECTOR_RECEPTIVO', 'LECTOR_EMPRESA'], section: 'Gestión' },
+  { label: 'Usuarios', icon: Users, href: '/users', roles: ['SUPERADMIN', 'ADMIN_RECEPTIVO'], section: 'Gestión' },
 
   // CMS
-  { label: 'Páginas CMS', icon: LayoutIcon, href: '/cms/pages', roles: ['ADMIN', 'SUPERADMIN'], section: 'CMS' },
-  { label: 'Artículos', icon: Newspaper, href: '/cms/articles', roles: ['ADMIN', 'SUPERADMIN'], section: 'CMS' },
-  { label: 'Menús', icon: Menu, href: '/cms/menus', roles: ['ADMIN', 'SUPERADMIN'], section: 'CMS' },
-  { label: 'Widgets', icon: Package, href: '/cms/widgets', roles: ['ADMIN', 'SUPERADMIN'], section: 'CMS' },
+  { label: 'Páginas CMS', icon: LayoutIcon, href: '/cms/pages', roles: ['SUPERADMIN'], section: 'CMS' },
+  { label: 'Artículos', icon: Newspaper, href: '/cms/articles', roles: ['SUPERADMIN'], section: 'CMS' },
+  { label: 'Menús', icon: Menu, href: '/cms/menus', roles: ['SUPERADMIN'], section: 'CMS' },
+  { label: 'Widgets', icon: Package, href: '/cms/widgets', roles: ['SUPERADMIN'], section: 'CMS' },
 
   // SuperAdmin
   { label: 'Nomencladores', icon: BookOpen, href: '/superadmin', roles: ['SUPERADMIN'], section: 'SuperAdmin' },
 
   // Hotel Module
-  { label: 'Anfitrión', icon: Hotel, href: '/host', roles: ['ADMIN', 'SUPERADMIN', 'COORDINADOR_HOTEL'], section: 'Hotel' },
-  { label: 'Calendario Hotel', icon: CalendarRange, href: '/host/calendario', roles: ['ADMIN', 'SUPERADMIN', 'COORDINADOR_HOTEL'], section: 'Hotel' },
-  { label: 'Solicitudes', icon: ClipboardList, href: '/host/solicitudes', roles: ['ADMIN', 'SUPERADMIN', 'COORDINADOR_HOTEL'], section: 'Hotel' },
-  { label: 'Eventos Hotel', icon: Building2, href: '/host/eventos', roles: ['ADMIN', 'SUPERADMIN', 'COORDINADOR_HOTEL'], section: 'Hotel' },
-  { label: 'BEOs', icon: FileBarChart, href: '/host/beos', roles: ['ADMIN', 'SUPERADMIN', 'COORDINADOR_HOTEL'], section: 'Hotel' },
-  { label: 'Salones', icon: Building2, href: '/host/salones', roles: ['ADMIN', 'SUPERADMIN', 'COORDINADOR_HOTEL'], section: 'Hotel' },
-  { label: 'Receptivos', icon: Handshake, href: '/host/receptivos', roles: ['ADMIN', 'SUPERADMIN'], section: 'Hotel' },
-  { label: 'Config. Hotel', icon: Wrench, href: '/host/configuracion', roles: ['ADMIN', 'SUPERADMIN'], section: 'Hotel' },
+  { label: 'Anfitrión', icon: Hotel, href: '/host', roles: ['SUPERADMIN', 'COORDINADOR_HOTEL'], section: 'Hotel' },
+  { label: 'Calendario Hotel', icon: CalendarRange, href: '/host/calendario', roles: ['SUPERADMIN', 'COORDINADOR_HOTEL'], section: 'Hotel' },
+  { label: 'Solicitudes', icon: ClipboardList, href: '/host/solicitudes', roles: ['SUPERADMIN', 'COORDINADOR_HOTEL'], section: 'Hotel' },
+  { label: 'Eventos Hotel', icon: Building2, href: '/host/eventos', roles: ['SUPERADMIN', 'COORDINADOR_HOTEL'], section: 'Hotel' },
+  { label: 'BEOs', icon: FileBarChart, href: '/host/beos', roles: ['SUPERADMIN', 'COORDINADOR_HOTEL'], section: 'Hotel' },
+  { label: 'Salones', icon: Building2, href: '/host/salones', roles: ['SUPERADMIN', 'COORDINADOR_HOTEL'], section: 'Hotel' },
+  { label: 'Receptivos', icon: Handshake, href: '/host/receptivos', roles: ['SUPERADMIN'], section: 'Hotel' },
+  { label: 'Config. Hotel', icon: Wrench, href: '/host/configuracion', roles: ['SUPERADMIN'], section: 'Hotel' },
 
   // Settings
-  { label: 'Configuración', icon: Settings, href: '/settings', roles: ['USER', 'REVIEWER', 'COMMITTEE', 'ADMIN', 'SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA', 'COORDINADOR_HOTEL', 'LECTOR_RECEPTIVO', 'LECTOR_EMPRESA'], section: 'Sistema' },
+  { label: 'Configuración', icon: Settings, href: '/settings', roles: ['USER', 'REVIEWER', 'COMMITTEE', 'SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA', 'COORDINADOR_HOTEL', 'LECTOR_RECEPTIVO', 'LECTOR_EMPRESA'], section: 'Sistema' },
 ];
 
 export function Sidebar() {

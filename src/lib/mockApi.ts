@@ -8,7 +8,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'USER' | 'REVIEWER' | 'COMMITTEE' | 'ADMIN';
+  role: 'USER' | 'REVIEWER' | 'COMMITTEE' | 'SUPERADMIN';
   country: string;
   affiliation: string;
   createdAt: string;
@@ -94,9 +94,9 @@ let mockUsers: User[] = [
   },
   {
     id: '4',
-    name: 'Admin Sistema',
-    email: 'admin@example.com',
-    role: 'ADMIN',
+    name: 'SuperAdmin Sistema',
+    email: 'superadmin@example.com',
+    role: 'SUPERADMIN',
     country: 'Cuba',
     affiliation: 'Sistema',
     createdAt: '2024-01-01',
@@ -381,7 +381,7 @@ export const statsApi = {
     events: number;
   }> {
     await delay(300);
-    const userAbstracts = role === 'ADMIN' || role === 'COMMITTEE' 
+    const userAbstracts = role === 'SUPERADMIN' || role === 'COMMITTEE' 
       ? mockAbstracts 
       : mockAbstracts.filter(a => a.userId === userId);
     

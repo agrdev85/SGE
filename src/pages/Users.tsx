@@ -29,7 +29,6 @@ const roleConfig: Record<UserRole, { label: string; color: string; icon: React.E
   USER: { label: 'Participante', color: 'bg-primary/10 text-primary', icon: UsersIcon },
   REVIEWER: { label: 'Revisor', color: 'bg-info/10 text-info', icon: ClipboardCheck },
   COMMITTEE: { label: 'Comité', color: 'bg-accent/10 text-accent', icon: UserCheck },
-  ADMIN: { label: 'Admin', color: 'bg-warning/10 text-warning', icon: Shield },
   SUPERADMIN: { label: 'SuperAdmin', color: 'bg-destructive/10 text-destructive', icon: Shield },
   ADMIN_RECEPTIVO: { label: 'Admin Receptivo', color: 'bg-orange-100 text-orange-700', icon: Handshake },
   ADMIN_EMPRESA: { label: 'Admin Empresa', color: 'bg-cyan-100 text-cyan-700', icon: Building2 },
@@ -44,9 +43,7 @@ const countries = ['Cuba', 'México', 'Argentina', 'España', 'Colombia', 'Chile
 function getAssignableRoles(currentUserRole: UserRole): UserRole[] {
   switch (currentUserRole) {
     case 'SUPERADMIN':
-      return ['USER', 'REVIEWER', 'COMMITTEE', 'ADMIN', 'SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA', 'COORDINADOR_HOTEL', 'LECTOR_RECEPTIVO', 'LECTOR_EMPRESA'];
-    case 'ADMIN':
-      return ['USER', 'REVIEWER', 'COMMITTEE', 'ADMIN'];
+      return ['USER', 'REVIEWER', 'COMMITTEE', 'SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA', 'COORDINADOR_HOTEL', 'LECTOR_RECEPTIVO', 'LECTOR_EMPRESA'];
     case 'ADMIN_RECEPTIVO':
       return ['ADMIN_RECEPTIVO', 'ADMIN_EMPRESA', 'COORDINADOR_HOTEL', 'LECTOR_RECEPTIVO', 'LECTOR_EMPRESA'];
     default:
@@ -91,7 +88,6 @@ export default function Users() {
     // Apply data isolation per permission matrix
     switch (currentUser.role) {
       case 'SUPERADMIN':
-      case 'ADMIN':
         break; // See all
       case 'ADMIN_RECEPTIVO':
         // Only see users of their receptivo (R02, R03, R04, R05, R06 roles)

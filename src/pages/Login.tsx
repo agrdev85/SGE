@@ -30,7 +30,6 @@ export default function Login() {
     { email: 'maria@example.com', role: 'Participante', color: 'bg-primary' },
     { email: 'carlos@example.com', role: 'Revisor', color: 'bg-info' },
     { email: 'ana@example.com', role: 'Comité', color: 'bg-accent' },
-    { email: 'admin@example.com', role: 'Admin', color: 'bg-warning' },
     { email: 'superadmin@example.com', role: 'SuperAdmin', color: 'bg-destructive' },
     { email: 'admin@havanatur.cu', role: 'Admin Receptivo', color: 'bg-info' },
   ];
