@@ -587,90 +587,24 @@ class Database {
     // Seed EventoHotel
     this.setCollection('nomencladores_eventoHotel', []);
 
-    // Add SuperAdmin user
+    // Ensure all demo users exist (in case of stale localStorage)
     const users = this.getCollection<User>('users');
-    const hasSuperadmin = users.some(u => u.role === 'SUPERADMIN');
-    if (!hasSuperadmin) {
-      users.push({
-        id: 'superadmin1',
-        name: 'SuperAdmin',
-        email: 'superadmin@example.com',
-        passwordHash: 'demo',
-        role: 'SUPERADMIN',
-        country: 'Cuba',
-        affiliation: 'Sistema',
-        createdAt: '2024-01-01',
-        isActive: true,
-      });
-      // Add sample ADMIN_RECEPTIVO
-      users.push({
-        id: 'admin_rec1',
-        name: 'Admin Havanatur',
-        email: 'admin@havanatur.cu',
-        passwordHash: 'demo',
-        role: 'ADMIN_RECEPTIVO',
-        country: 'Cuba',
-        affiliation: 'Havanatur',
-        createdAt: '2024-01-01',
-        isActive: true,
-        receptivoId: 'nr1',
-      });
-      // Add sample COORDINADOR_HOTEL
-      users.push({
-        id: 'coord_hotel1',
-        name: 'Coord. Meliá Varadero',
-        email: 'coordinador@meliavaradero.cu',
-        passwordHash: 'demo',
-        role: 'COORDINADOR_HOTEL',
-        country: 'Cuba',
-        affiliation: 'Meliá Internacional',
-        createdAt: '2024-01-01',
-        isActive: true,
-        hotelId: 'nh1',
-      });
-      // Add sample ADMIN_EMPRESA
-      users.push({
-        id: 'admin_emp1',
-        name: 'Admin Havanatur Varadero',
-        email: 'admin@havanatur-varadero.cu',
-        passwordHash: 'demo',
-        role: 'ADMIN_EMPRESA',
-        country: 'Cuba',
-        affiliation: 'Havanatur Sucursal Varadero',
-        createdAt: '2024-01-01',
-        isActive: true,
-        receptivoId: 'nr1',
-        empresaId: 'ne1',
-      });
-      // Add sample LECTOR_RECEPTIVO
-      users.push({
-        id: 'lector_rec1',
-        name: 'Lector Cubatur',
-        email: 'lector@cubatur.cu',
-        passwordHash: 'demo',
-        role: 'LECTOR_RECEPTIVO',
-        country: 'Cuba',
-        affiliation: 'Cubatur',
-        createdAt: '2024-01-01',
-        isActive: true,
-        receptivoId: 'nr2',
-      });
-      // Add sample LECTOR_EMPRESA
-      users.push({
-        id: 'lector_emp1',
-        name: 'Lector Cubatur Events',
-        email: 'lector@cubatur-events.cu',
-        passwordHash: 'demo',
-        role: 'LECTOR_EMPRESA',
-        country: 'Cuba',
-        affiliation: 'Cubatur Events',
-        createdAt: '2024-01-01',
-        isActive: true,
-        receptivoId: 'nr2',
-        empresaId: 'ne3',
-      });
-      this.setCollection('users', users);
+    const requiredUsers = [
+      { id: 'superadmin1', email: 'superadmin@example.com', name: 'SuperAdmin', role: 'SUPERADMIN' as UserRole, affiliation: 'Sistema' },
+      { id: 'admin_rec1', email: 'admin@havanatur.cu', name: 'Admin Havanatur', role: 'ADMIN_RECEPTIVO' as UserRole, affiliation: 'Havanatur', receptivoId: 'nr1' },
+      { id: 'admin_emp1', email: 'admin@havanatur-varadero.cu', name: 'Admin Havanatur Varadero', role: 'ADMIN_EMPRESA' as UserRole, affiliation: 'Havanatur Sucursal Varadero', receptivoId: 'nr1', empresaId: 'ne1' },
+      { id: 'coord_hotel1', email: 'coordinador@meliavaradero.cu', name: 'Coord. Meliá Varadero', role: 'COORDINADOR_HOTEL' as UserRole, affiliation: 'Meliá Internacional', hotelId: 'nh1' },
+      { id: 'lector_rec1', email: 'lector@cubatur.cu', name: 'Lector Cubatur', role: 'LECTOR_RECEPTIVO' as UserRole, affiliation: 'Cubatur', receptivoId: 'nr2' },
+      { id: 'lector_emp1', email: 'lector@cubatur-events.cu', name: 'Lector Cubatur Events', role: 'LECTOR_EMPRESA' as UserRole, affiliation: 'Cubatur Events', receptivoId: 'nr2', empresaId: 'ne3' },
+    ];
+    let changed = false;
+    for (const req of requiredUsers) {
+      if (!users.some(u => u.email === req.email)) {
+        users.push({ ...req, passwordHash: 'demo', country: 'Cuba', createdAt: '2024-01-01', isActive: true });
+        changed = true;
+      }
     }
+    if (changed) this.setCollection('users', users);
   }
 
   private seedData() {
@@ -739,6 +673,79 @@ class Database {
         createdAt: '2024-01-14',
         isActive: true,
         specialization: 'Inmunología',
+      },
+      {
+        id: 'superadmin1',
+        name: 'SuperAdmin',
+        email: 'superadmin@example.com',
+        passwordHash: 'demo',
+        role: 'SUPERADMIN',
+        country: 'Cuba',
+        affiliation: 'Sistema',
+        createdAt: '2024-01-01',
+        isActive: true,
+      },
+      {
+        id: 'admin_rec1',
+        name: 'Admin Havanatur',
+        email: 'admin@havanatur.cu',
+        passwordHash: 'demo',
+        role: 'ADMIN_RECEPTIVO',
+        country: 'Cuba',
+        affiliation: 'Havanatur',
+        createdAt: '2024-01-01',
+        isActive: true,
+        receptivoId: 'nr1',
+      },
+      {
+        id: 'coord_hotel1',
+        name: 'Coord. Meliá Varadero',
+        email: 'coordinador@meliavaradero.cu',
+        passwordHash: 'demo',
+        role: 'COORDINADOR_HOTEL',
+        country: 'Cuba',
+        affiliation: 'Meliá Internacional',
+        createdAt: '2024-01-01',
+        isActive: true,
+        hotelId: 'nh1',
+      },
+      {
+        id: 'admin_emp1',
+        name: 'Admin Havanatur Varadero',
+        email: 'admin@havanatur-varadero.cu',
+        passwordHash: 'demo',
+        role: 'ADMIN_EMPRESA',
+        country: 'Cuba',
+        affiliation: 'Havanatur Sucursal Varadero',
+        createdAt: '2024-01-01',
+        isActive: true,
+        receptivoId: 'nr1',
+        empresaId: 'ne1',
+      },
+      {
+        id: 'lector_rec1',
+        name: 'Lector Cubatur',
+        email: 'lector@cubatur.cu',
+        passwordHash: 'demo',
+        role: 'LECTOR_RECEPTIVO',
+        country: 'Cuba',
+        affiliation: 'Cubatur',
+        createdAt: '2024-01-01',
+        isActive: true,
+        receptivoId: 'nr2',
+      },
+      {
+        id: 'lector_emp1',
+        name: 'Lector Cubatur Events',
+        email: 'lector@cubatur-events.cu',
+        passwordHash: 'demo',
+        role: 'LECTOR_EMPRESA',
+        country: 'Cuba',
+        affiliation: 'Cubatur Events',
+        createdAt: '2024-01-01',
+        isActive: true,
+        receptivoId: 'nr2',
+        empresaId: 'ne3',
       },
     ];
     this.setCollection('users', users);
