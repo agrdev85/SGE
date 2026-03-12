@@ -674,17 +674,7 @@ class Database {
         avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop',
         specialization: 'Farmacología',
       },
-      {
-        id: '4',
-        name: 'Admin Sistema',
-        email: 'admin@example.com',
-        passwordHash: 'demo',
-        role: 'ADMIN',
-        country: 'Cuba',
-        affiliation: 'Sistema',
-        createdAt: '2024-01-01',
-        isActive: true,
-      },
+      // ADMIN role removed - use SUPERADMIN instead
       {
         id: '5',
         name: 'Dr. Pedro López',
