@@ -35,9 +35,21 @@ export default function EventoLanding() {
 
   const primaryColor = macro.primaryColor || '#3b82f6';
   const secondaryColor = macro.secondaryColor || '#60a5fa';
+  const backgroundColor = (macro as any).backgroundColor || '';
+  const backgroundImage = (macro as any).backgroundImageUrl || '';
 
   return (
-    <div className="min-h-screen bg-background">
+    <div 
+      className="min-h-screen bg-background"
+      style={backgroundImage ? {
+        backgroundImage: `url(${backgroundImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+      } : backgroundColor ? {
+        backgroundColor,
+      } : undefined}
+    >
       {/* Header */}
       <header className="relative h-64 md:h-80 overflow-hidden">
         <img
@@ -73,6 +85,18 @@ export default function EventoLanding() {
           <Card className="mb-8">
             <CardContent className="pt-6">
               <p className="text-lg text-muted-foreground">{macro.description}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* HTML Content */}
+        {(macro as any).contenidoHtml && (
+          <Card className="mb-8">
+            <CardContent className="pt-6">
+              <div 
+                className="prose prose-sm max-w-none"
+                dangerouslySetInnerHTML={{ __html: (macro as any).contenidoHtml }}
+              />
             </CardContent>
           </Card>
         )}
