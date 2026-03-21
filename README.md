@@ -1,4 +1,4 @@
-# Welcome to your SGE project
+# Welcome to your SGE Wizard project
 
 ## Project info
 
