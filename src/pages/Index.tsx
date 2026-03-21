@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { db, Event, CMSArticle, CMSSettings } from '@/lib/database';
+import { db, Event, MacroEvent, CMSArticle, CMSSettings } from '@/lib/database';
 import PublicHeader from '@/components/PublicHeader';
 import { 
   Layers, 
@@ -50,13 +50,13 @@ const stats = [
 ];
 
 export default function Index() {
-  const [events, setEvents] = useState<Event[]>([]);
+  const [events, setEvents] = useState<MacroEvent[]>([]);
   const [articles, setArticles] = useState<CMSArticle[]>([]);
   const [settings, setSettings] = useState<CMSSettings | null>(null);
 
   useEffect(() => {
     db.init();
-    const activeEvents = db.events.getAll().filter(e => e.isActive);
+    const activeEvents = db.macroEvents.getAll().filter(e => e.isActive);
     setEvents(activeEvents);
     const featuredArticles = db.cmsArticles.getFeatured();
     setArticles(featuredArticles);
@@ -162,7 +162,7 @@ export default function Index() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {events.map((event) => (
-                <Link key={event.id} to={`/event/${event.id}`} className="group">
+                <Link key={event.id} to={`/evento/${event.id}`} className="group">
                   <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                     <div className="relative h-48">
                       <img

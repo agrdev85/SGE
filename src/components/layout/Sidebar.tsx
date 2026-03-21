@@ -6,7 +6,7 @@ import {
   LayoutDashboard, FileText, ClipboardCheck, Users, Calendar, Settings, LogOut, ChevronLeft,
   Layers, CalendarDays, CalendarCheck, Layout as LayoutIcon, Newspaper, Menu, Shield, Package,
   Hotel, ClipboardList, CalendarRange, FileBarChart, Building2, Handshake, Wrench, BookOpen,
-  Eye, ChevronDown, ListChecks,
+  Eye, ChevronDown, ListChecks, Ticket,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +30,7 @@ const navItems: NavItem[] = [
   { label: 'Comité', icon: Users, href: '/committee', roles: ['COMMITTEE', 'SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA', 'COORDINADOR_HOTEL'], section: 'Principal' },
   { label: 'Programa', icon: CalendarDays, href: '/program', roles: ['COMMITTEE', 'SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA'], section: 'Principal' },
   { label: 'Mi Programa', icon: CalendarCheck, href: '/my-program', roles: ['USER', 'REVIEWER'], section: 'Principal' },
+  { label: 'Mis Actividades', icon: Ticket, href: '/actividades', roles: ['USER', 'REVIEWER', 'COMMITTEE', 'SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA', 'COORDINADOR_HOTEL', 'LECTOR_RECEPTIVO', 'LECTOR_EMPRESA'], section: 'Principal' },
 
   // Gestión
   { label: 'Gestión Eventos', icon: Calendar, href: '/events', roles: ['SUPERADMIN', 'ADMIN_RECEPTIVO', 'ADMIN_EMPRESA', 'COORDINADOR_HOTEL', 'LECTOR_RECEPTIVO', 'LECTOR_EMPRESA'], section: 'Gestión' },

@@ -13,6 +13,7 @@ import Abstracts from "./pages/Abstracts";
 import NewAbstract from "./pages/NewAbstract";
 import EditAbstract from "./pages/EditAbstract";
 import EventLanding from "./pages/EventLanding";
+import EventoLanding from "./pages/EventoLanding";
 import Review from "./pages/Review";
 import Committee from "./pages/Committee";
 import Events from "./pages/Events";
@@ -39,6 +40,8 @@ import HostBEOs from "./pages/host/HostBEOs";
 import HostSalones from "./pages/host/HostSalones";
 import HostReceptivos from "./pages/host/HostReceptivos";
 import HostConfiguracion from "./pages/host/HostConfiguracion";
+import EventWizard from "./components/wizard/EventWizard";
+import MisActividades from "./pages/MisActividades";
 
 const queryClient = new QueryClient();
 
@@ -58,6 +61,7 @@ const App = () => (
               <Route path="/abstracts" element={<Abstracts />} />
               <Route path="/abstracts/new" element={<NewAbstract />} />
               <Route path="/abstracts/edit/:abstractId" element={<EditAbstract />} />
+              <Route path="/evento/:eventId" element={<EventoLanding />} />
               <Route path="/event/:eventId" element={<EventLanding />} />
               <Route path="/review" element={<Review />} />
               <Route path="/committee" element={<Committee />} />
@@ -79,6 +83,9 @@ const App = () => (
               <Route path="/host/salones" element={<HostSalones />} />
               <Route path="/host/receptivos" element={<HostReceptivos />} />
               <Route path="/host/configuracion" element={<HostConfiguracion />} />
+              <Route path="/events/wizard" element={<EventWizard />} />
+              <Route path="/events/wizard/:eventoId" element={<EventWizard />} />
+              <Route path="/actividades" element={<MisActividades />} />
               <Route path="/pagina/:slug" element={<PublicPage />} />
               <Route path="/articulo/:slug" element={<PublicArticle />} />
               <Route path="/blog" element={<PublicBlog />} />

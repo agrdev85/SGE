@@ -154,7 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdminEmpresa,
       isCoordinadorHotel,
       isLector,
-      canManageNomencladores: isSuperAdmin,
+      canManageNomencladores: isSuperAdmin || isAdminReceptivo,
       canCreateEvents: isAdmin || isAdminReceptivo || isAdminEmpresa,
       canManageUsers: isSuperAdmin || isAdminReceptivo,
       impersonateUser,
