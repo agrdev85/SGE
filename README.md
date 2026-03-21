@@ -36,6 +36,23 @@ npm i
 npm run dev
 ```
 
+Para crear una rama para probar cambios:
+
+```bash
+# Crear y cambiar a la nueva rama
+git checkout -b nombre-rama-prueba
+
+# Publicar la rama en GitHub
+git push -u origin nombre-rama-prueba
+```
+
+Luego trabajas en esa rama. Cuando esté lista para unir a `main`:
+1. Crear **Pull Request** en GitHub desde tu rama hacia `main`
+2. Revisar cambios y hacer merge
+
+**Para cambiar entre ramas:** `git checkout main` o `git checkout nombre-rama-prueba`
+```
+
 **Edit a file directly in GitHub**
 
 - Navigate to the desired file(s).
