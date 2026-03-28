@@ -64,8 +64,18 @@ export default function Index() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
-      <PublicHeader location="header" />
+    <div className="min-h-screen bg-background relative">
+      {/* Background Image */}
+      <div 
+        className="fixed inset-0 bg-cover bg-center bg-no-repeat pointer-events-none z-0"
+        style={{ 
+          backgroundImage: `url('/images/taller-pre-evento-sigestic25-leaves-background.png')`,
+          opacity: 0.15
+        }}
+      />
+      
+      <div className="relative z-10">
+        <PublicHeader location="header" />
 
       {/* Hero Section */}
       <section className="relative pt-20 pb-20 overflow-hidden">
@@ -287,6 +297,7 @@ export default function Index() {
       )}
 
       <PublicHeader location="footer" />
+      </div>
     </div>
   );
 }

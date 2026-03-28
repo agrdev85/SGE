@@ -2,6 +2,22 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 import { db, MacroEvent } from '@/lib/database';
 import { useAuth } from '@/contexts/AuthContext';
 
+export interface HabitacionPrecio {
+  tipoHabitacionId: string;
+  tipoHabitacionNombre: string;
+  precioCUP: number;
+  precioMoneda: number;
+  moneda: string;
+  cupo: number;
+}
+
+export interface HotelesData {
+  hotelesSeleccionados: string[];
+  salonesSeleccionados: string[];
+  habitacionesPorHotel: Record<string, HabitacionPrecio[]>;
+  tiposHabitacionSeleccionados: Record<string, string[]>;
+}
+
 export interface WizardState {
   eventoId: string | null;
   pasoActual: number;
@@ -12,6 +28,7 @@ export interface WizardState {
   modificadoPor: string | null;
   isLoading: boolean;
   isSaving: boolean;
+  hotelesData: HotelesData | null;
 }
 
 const pasos = [
@@ -50,6 +67,8 @@ interface WizardContextType {
   crearNuevoEvento: (datos: Partial<MacroEvent>) => Promise<string>;
   porcentajeCompletado: number;
   getPasosInfo: () => { numero: number; titulo: string; icon: string; estado: 'completado' | 'actual' | 'bloqueado' | 'pendiente' }[];
+  guardarHotelesData: (data: HotelesData) => void;
+  obtenerHotelesData: () => HotelesData | null;
 }
 
 const WizardContext = createContext<WizardContextType | undefined>(undefined);
@@ -67,9 +86,20 @@ export function WizardProvider({ children }: { children: React.ReactNode }) {
     modificadoPor: null,
     isLoading: false,
     isSaving: false,
+    hotelesData: null,
   });
 
   const [evento, setEvento] = useState<MacroEvent | null>(null);
+
+  React.useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key && e.key.startsWith('sge_')) {
+        window.dispatchEvent(new CustomEvent('sge-data-change', { detail: { key: e.key } }));
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   const puedeAccederPaso = useCallback((paso: number): boolean => {
     if (state.pasosCompletados.includes(paso)) return true;
@@ -249,6 +279,14 @@ export function WizardProvider({ children }: { children: React.ReactNode }) {
     });
   }, [state.pasoActual, state.pasosCompletados, puedeAccederPaso]);
 
+  const guardarHotelesData = useCallback((data: HotelesData) => {
+    setState(prev => ({ ...prev, hotelesData: data }));
+  }, []);
+
+  const obtenerHotelesData = useCallback((): HotelesData | null => {
+    return state.hotelesData;
+  }, [state.hotelesData]);
+
   const value: WizardContextType = {
     state,
     evento,
@@ -265,6 +303,8 @@ export function WizardProvider({ children }: { children: React.ReactNode }) {
     crearNuevoEvento,
     porcentajeCompletado,
     getPasosInfo,
+    guardarHotelesData,
+    obtenerHotelesData,
   };
 
   return (

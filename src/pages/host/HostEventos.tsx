@@ -11,9 +11,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { hostDb, EventoConfirmado, TipoEvento, EstadoEventoConfirmado } from '@/lib/hostDatabase';
-import { Plus, Search, Eye, Edit, Trash2, FileText, ArrowLeft } from 'lucide-react';
+import { Plus, Search, Eye, Pencil, Trash2, FileText, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 
 const TIPOS_EVENTO: { value: TipoEvento; label: string }[] = [
   { value: 'reunion', label: 'Reunión' }, { value: 'congreso', label: 'Congreso' },
@@ -40,6 +41,18 @@ export default function HostEventos() {
     receptivoId: '', nombreEvento: '', tipoEvento: 'reunion' as TipoEvento,
     fechaInicio: '', fechaFin: '', horaInicio: '09:00', horaFin: '18:00',
     salonId: '', paxConfirmado: 50, notasInternas: '', requiereBeo: true,
+  });
+
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
+    isOpen: boolean;
+    itemName: string;
+    itemId: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    itemName: '',
+    itemId: '',
+    onConfirm: () => {},
   });
 
   useEffect(() => { loadData(); }, []);
@@ -87,11 +100,16 @@ export default function HostEventos() {
   };
 
   const handleDelete = (evt: EventoConfirmado) => {
-    if (confirm('¿Eliminar este evento?')) {
-      hostDb.eventosConfirmados.delete(evt.id);
-      toast.success('Evento eliminado');
-      loadData();
-    }
+    setDeleteConfirmDialog({
+      isOpen: true,
+      itemName: evt.nombreEvento,
+      itemId: evt.id,
+      onConfirm: () => {
+        hostDb.eventosConfirmados.delete(evt.id);
+        toast.success('Evento eliminado');
+        loadData();
+      },
+    });
   };
 
   const updateEstado = (evt: EventoConfirmado, estado: EstadoEventoConfirmado) => {
@@ -173,7 +191,7 @@ export default function HostEventos() {
                   <TableCell onClick={e => e.stopPropagation()}>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDetail(evt)}><Eye className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(evt)}><Edit className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(evt)}><Pencil className="h-4 w-4" /></Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate('/host/beos')} title="BEOs"><FileText className="h-4 w-4" /></Button>
                       {evt.estado === 'cancelado' && <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(evt)}><Trash2 className="h-4 w-4" /></Button>}
                     </div>
@@ -270,6 +288,19 @@ export default function HostEventos() {
           )}
         </DialogContent>
       </Dialog>
+
+      <ConfirmationDialog
+        open={deleteConfirmDialog.isOpen}
+        onOpenChange={(open) => !open && setDeleteConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+        title="¿Eliminar evento?"
+        description="¿Está seguro de que desea eliminar este evento confirmado? Esta acción no se puede deshacer."
+        itemName={deleteConfirmDialog.itemName}
+        itemType="evento"
+        variant="danger"
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        onConfirm={deleteConfirmDialog.onConfirm}
+      />
     </DashboardLayout>
   );
 }

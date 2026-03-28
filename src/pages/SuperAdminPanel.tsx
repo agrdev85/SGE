@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { db, CMSSettings, User, Event, NomReceptivo, NomEmpresa, NomTipoParticipacion, NomTipoTransporte, NomHotel, NomTipoHabitacion, HotelTipoHabitacion, AuditLog, UserRole } from '@/lib/database';
+import { db, CMSSettings, User, Event, NomReceptivo, NomEmpresa, NomTipoParticipacion, NomTipoTransporte, NomHotel, NomTipoHabitacion, HotelTipoHabitacion, Salon, AuditLog, UserRole } from '@/lib/database';
+import { normalizeText, isDuplicate, findSimilarItems, cn } from '@/lib/utils';
 import { useAuth, roleLabels } from '@/contexts/AuthContext';
 import { seedCMSData } from '@/lib/seedCMS';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -14,11 +15,14 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import {
-  Save, Settings, Palette, Globe, Shield, Users, Calendar, FileText, Database, Download, Plus, Edit, Trash2, Search, BookOpen, Hotel, Bus, BedDouble, Briefcase, UserCheck, Eye, History, Building2, Handshake
+  Save, Settings, Palette, Globe, Shield, Users, Calendar, FileText, Database, Download, Plus, Pencil, Trash2, Search, BookOpen, Hotel, Bus, BedDouble, Briefcase, UserCheck, Eye, History, Building2, Handshake, Lightbulb, Image, Shuffle, Check
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { NomenclatorModal } from '@/components/ui/NomenclatorModal';
+import { ConfirmationDialog, ConfirmationVariant, useConfirmation } from '@/components/ui/ConfirmationDialog';
+import { useWallpaperConfig, AURORA_PRESETS, type WallpaperMode, type BackgroundType } from '@/hooks/useWallpaperConfig';
 
 // Generic CRUD Table component for nomencladores
 function NomencladorTable<T extends { id: string }>({
@@ -81,7 +85,7 @@ function NomencladorTable<T extends { id: string }>({
                 ))}
                 <TableCell>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(item)}><Edit className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(item)}><Pencil className="h-4 w-4" /></Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => onDelete(item)}><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 </TableCell>
@@ -96,7 +100,60 @@ function NomencladorTable<T extends { id: string }>({
 
 const SuperAdminPanel: React.FC = () => {
   const { user: currentUser, impersonateUser } = useAuth();
+  const { config: wallpaperConfig, updateConfig, wallpapers } = useWallpaperConfig();
+  const { confirm, success } = useConfirmation();
   const [activeTab, setActiveTab] = useState('overview');
+
+  const handleDeleteWithConfirmation = async (itemType: string, itemName: string, onDelete: () => void) => {
+    const confirmed = await confirm({
+      title: `¿Eliminar ${itemType}?`,
+      description: `¿Está seguro de que desea eliminar este ${itemType}? Esta acción no se puede deshacer.`,
+      itemName,
+      itemType,
+      variant: 'danger',
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+    });
+    
+    if (confirmed) {
+      onDelete();
+      await success({
+        title: '¡Eliminado!',
+        description: `${itemType} "${itemName}" ha sido eliminado correctamente.`,
+        autoClose: 2000,
+      });
+    }
+  };
+
+  const handleInitCMS = async () => {
+    const confirmed = await confirm({
+      title: '¿Inicializar datos CMS?',
+      description: 'Se crearán los datos iniciales del CMS. Esta acción puede sobrescribir datos existentes.',
+      variant: 'warning',
+      confirmText: 'Inicializar',
+      cancelText: 'Cancelar',
+    });
+    
+    if (confirmed) {
+      seedCMSData();
+      window.location.reload();
+    }
+  };
+
+  const handleResetSystem = async () => {
+    const confirmed = await confirm({
+      title: '¿Restablecer Sistema?',
+      description: '¿Está seguro de que desea borrar TODOS los datos del sistema? Esta acción no se puede deshacer.',
+      variant: 'danger',
+      confirmText: 'Borrar Todo',
+      cancelText: 'Cancelar',
+    });
+    
+    if (confirmed) {
+      localStorage.clear();
+      window.location.reload();
+    }
+  };
 
   // Data
   const [users, setUsers] = useState<User[]>([]);
@@ -107,6 +164,7 @@ const SuperAdminPanel: React.FC = () => {
   const [hoteles, setHoteles] = useState<NomHotel[]>([]);
   const [tiposHabitacion, setTiposHabitacion] = useState<NomTipoHabitacion[]>([]);
   const [hotelTiposHab, setHotelTiposHab] = useState<HotelTipoHabitacion[]>([]);
+  const [salones, setSalones] = useState<Salon[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [settings, setSettings] = useState<CMSSettings | null>(null);
 
@@ -114,8 +172,53 @@ const SuperAdminPanel: React.FC = () => {
   const [dialogType, setDialogType] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [formData, setFormData] = useState<any>({});
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  // Suggestion dialog state
+  const [suggestionDialog, setSuggestionDialog] = useState<{
+    isOpen: boolean;
+    itemType: string;
+    itemLabel: string;
+    newName: string;
+    suggestions: any[];
+    onSelectExisting: (item: any) => void;
+    onCreateAnyway: () => void;
+  }>({
+    isOpen: false,
+    itemType: '',
+    itemLabel: '',
+    newName: '',
+    suggestions: [],
+    onSelectExisting: () => {},
+    onCreateAnyway: () => {},
+  });
+
+  // Delete confirmation dialog state
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
+    isOpen: boolean;
+    itemType: string;
+    itemName: string;
+    itemId: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    itemType: '',
+    itemName: '',
+    itemId: '',
+    onConfirm: () => {},
+  });
+
+
 
   useEffect(() => { loadAll(); }, []);
+
+  useEffect(() => {
+    const handleDataChange = () => {
+      loadAll();
+    };
+    window.addEventListener('sge-data-change', handleDataChange);
+    return () => window.removeEventListener('sge-data-change', handleDataChange);
+  }, []);
 
   const loadAll = () => {
     setUsers(db.users.getAll());
@@ -126,6 +229,7 @@ const SuperAdminPanel: React.FC = () => {
     setHoteles(db.nomHoteles.getAll());
     setTiposHabitacion(db.nomTiposHabitacion.getAll());
     setHotelTiposHab(db.hotelTiposHabitacion.getAll());
+    setSalones(db.salones.getAll());
     setAuditLogs(db.auditLog.getAll());
     const s = db.cmsSettings.get();
     if (!s) {
@@ -150,8 +254,41 @@ const SuperAdminPanel: React.FC = () => {
   };
   const closeDialog = () => { setDialogType(null); setEditingItem(null); setFormData({}); };
 
-  // ===== CRUD HANDLERS =====
+  // ===== CRUD HANDLERS WITH DUPLICATE VALIDATION =====
   const handleSaveReceptivo = () => {
+    if (!editingItem) {
+      const nombreField = formData.nombre;
+      if (nombreField) {
+        const existe = isDuplicate(receptivos, nombreField, r => r.nombre);
+        if (existe) {
+          toast.error(`"${existe.nombre}" ya existe`);
+          return;
+        }
+        const similares = findSimilarItems(receptivos, nombreField, r => r.nombre, 0.5);
+        if (similares.length > 0) {
+          setSuggestionDialog({
+            isOpen: true,
+            itemType: 'receptivo',
+            itemLabel: 'Receptivo',
+            newName: nombreField,
+            suggestions: similares.map(s => s.item),
+            onSelectExisting: () => {
+              setSuggestionDialog(prev => ({ ...prev, isOpen: false }));
+              closeDialog();
+            },
+            onCreateAnyway: () => {
+              crearReceptivo();
+              setSuggestionDialog(prev => ({ ...prev, isOpen: false }));
+            },
+          });
+          return;
+        }
+      }
+    }
+    crearReceptivo();
+  };
+
+  const crearReceptivo = () => {
     try {
       if (editingItem) db.nomReceptivos.update(editingItem.id, formData);
       else db.nomReceptivos.create({ ...formData, activo: formData.activo ?? true });
@@ -161,10 +298,53 @@ const SuperAdminPanel: React.FC = () => {
   };
 
   const handleDeleteReceptivo = (r: NomReceptivo) => {
-    try { if (confirm('¿Eliminar este receptivo?')) { db.nomReceptivos.delete(r.id); toast.success('Eliminado'); loadAll(); } } catch (e: any) { toast.error(e.message); }
+    handleDeleteWithConfirmation('receptivo', r.nombre, () => {
+      db.nomReceptivos.delete(r.id);
+      loadAll();
+    });
+  };
+
+  const handleDeleteEmpresa = (e: NomEmpresa) => {
+    handleDeleteWithConfirmation('empresa', e.nombre, () => {
+      db.nomEmpresas.delete(e.id);
+      loadAll();
+    });
   };
 
   const handleSaveEmpresa = () => {
+    if (!editingItem) {
+      const nombreField = formData.nombre;
+      if (nombreField) {
+        const existe = isDuplicate(empresas, nombreField, e => e.nombre);
+        if (existe) {
+          toast.error(`"${existe.nombre}" ya existe`);
+          return;
+        }
+        const similares = findSimilarItems(empresas, nombreField, e => e.nombre, 0.5);
+        if (similares.length > 0) {
+          setSuggestionDialog({
+            isOpen: true,
+            itemType: 'empresa',
+            itemLabel: 'Empresa',
+            newName: nombreField,
+            suggestions: similares.map(s => s.item),
+            onSelectExisting: () => {
+              setSuggestionDialog(prev => ({ ...prev, isOpen: false }));
+              closeDialog();
+            },
+            onCreateAnyway: () => {
+              crearEmpresa();
+              setSuggestionDialog(prev => ({ ...prev, isOpen: false }));
+            },
+          });
+          return;
+        }
+      }
+    }
+    crearEmpresa();
+  };
+
+  const crearEmpresa = () => {
     try {
       if (editingItem) db.nomEmpresas.update(editingItem.id, formData);
       else db.nomEmpresas.create({ ...formData, activo: formData.activo ?? true });
@@ -173,11 +353,39 @@ const SuperAdminPanel: React.FC = () => {
     } catch (e: any) { toast.error(e.message); }
   };
 
-  const handleDeleteEmpresa = (e: NomEmpresa) => {
-    if (confirm('¿Eliminar esta empresa?')) { try { db.nomEmpresas.delete(e.id); toast.success('Eliminada'); loadAll(); } catch (er: any) { toast.error(er.message); } }
+  const handleSaveTipoParticipacion = () => {
+    if (!editingItem) {
+      if (formData.nombre) {
+        const existe = isDuplicate(tiposParticipacion, formData.nombre, t => t.nombre);
+        if (existe) {
+          toast.error(`"${existe.nombre}" ya existe`);
+          return;
+        }
+        const similares = findSimilarItems(tiposParticipacion, formData.nombre, t => t.nombre, 0.5);
+        if (similares.length > 0) {
+          setSuggestionDialog({
+            isOpen: true,
+            itemType: 'tipoParticipacion',
+            itemLabel: 'Tipo de Participación',
+            newName: formData.nombre,
+            suggestions: similares.map(s => s.item),
+            onSelectExisting: () => {
+              setSuggestionDialog(prev => ({ ...prev, isOpen: false }));
+              closeDialog();
+            },
+            onCreateAnyway: () => {
+              crearTipoParticipacion();
+              setSuggestionDialog(prev => ({ ...prev, isOpen: false }));
+            },
+          });
+          return;
+        }
+      }
+    }
+    crearTipoParticipacion();
   };
 
-  const handleSaveTipoParticipacion = () => {
+  const crearTipoParticipacion = () => {
     try {
       if (editingItem) db.nomTiposParticipacion.update(editingItem.id, formData);
       else db.nomTiposParticipacion.create({ ...formData, activo: formData.activo ?? true });
@@ -187,6 +395,38 @@ const SuperAdminPanel: React.FC = () => {
   };
 
   const handleSaveTipoTransporte = () => {
+    if (!editingItem) {
+      if (formData.nombre) {
+        const existe = isDuplicate(tiposTransporte, formData.nombre, t => t.nombre);
+        if (existe) {
+          toast.error(`"${existe.nombre}" ya existe`);
+          return;
+        }
+        const similares = findSimilarItems(tiposTransporte, formData.nombre, t => t.nombre, 0.5);
+        if (similares.length > 0) {
+          setSuggestionDialog({
+            isOpen: true,
+            itemType: 'tipoTransporte',
+            itemLabel: 'Tipo de Transporte',
+            newName: formData.nombre,
+            suggestions: similares.map(s => s.item),
+            onSelectExisting: () => {
+              setSuggestionDialog(prev => ({ ...prev, isOpen: false }));
+              closeDialog();
+            },
+            onCreateAnyway: () => {
+              crearTipoTransporte();
+              setSuggestionDialog(prev => ({ ...prev, isOpen: false }));
+            },
+          });
+          return;
+        }
+      }
+    }
+    crearTipoTransporte();
+  };
+
+  const crearTipoTransporte = () => {
     try {
       if (editingItem) db.nomTiposTransporte.update(editingItem.id, formData);
       else db.nomTiposTransporte.create({ ...formData, activo: formData.activo ?? true });
@@ -196,6 +436,38 @@ const SuperAdminPanel: React.FC = () => {
   };
 
   const handleSaveHotel = () => {
+    if (!editingItem) {
+      if (formData.nombre) {
+        const existe = isDuplicate(hoteles, formData.nombre, h => h.nombre);
+        if (existe) {
+          toast.error(`"${existe.nombre}" ya existe`);
+          return;
+        }
+        const similares = findSimilarItems(hoteles, formData.nombre, h => h.nombre, 0.5);
+        if (similares.length > 0) {
+          setSuggestionDialog({
+            isOpen: true,
+            itemType: 'hotel',
+            itemLabel: 'Hotel',
+            newName: formData.nombre,
+            suggestions: similares.map(s => s.item),
+            onSelectExisting: () => {
+              setSuggestionDialog(prev => ({ ...prev, isOpen: false }));
+              closeDialog();
+            },
+            onCreateAnyway: () => {
+              crearHotel();
+              setSuggestionDialog(prev => ({ ...prev, isOpen: false }));
+            },
+          });
+          return;
+        }
+      }
+    }
+    crearHotel();
+  };
+
+  const crearHotel = () => {
     try {
       if (editingItem) db.nomHoteles.update(editingItem.id, formData);
       else db.nomHoteles.create({ ...formData, activo: formData.activo ?? true });
@@ -205,10 +477,69 @@ const SuperAdminPanel: React.FC = () => {
   };
 
   const handleDeleteHotel = (h: NomHotel) => {
-    try { if (confirm('¿Eliminar?')) { db.nomHoteles.delete(h.id); toast.success('Eliminado'); loadAll(); } } catch (e: any) { toast.error(e.message); }
+    handleDeleteWithConfirmation('hotel', h.nombre, () => {
+      db.nomHoteles.delete(h.id);
+      loadAll();
+    });
+  };
+
+  const handleSaveSalon = () => {
+    if (!formData.codigo || !formData.nombre) {
+      toast.error('El código y nombre son obligatorios');
+      return;
+    }
+    if (formData.capacidadMaxima <= 0) {
+      toast.error('La capacidad debe ser mayor a 0');
+      return;
+    }
+    try {
+      if (editingItem) db.salones.update(editingItem.id, formData);
+      else db.salones.create({ ...formData, estado: formData.estado || 'ACTIVO', imagenes: [] });
+      toast.success(editingItem ? 'Salón actualizado' : 'Salón creado');
+      closeDialog(); loadAll();
+    } catch (e: any) { toast.error(e.message); }
+  };
+
+  const handleDeleteSalon = (s: Salon) => {
+    handleDeleteWithConfirmation('salón', s.nombre || s.codigo, () => {
+      db.salones.delete(s.id);
+      loadAll();
+    });
   };
 
   const handleSaveTipoHabitacion = () => {
+    if (!editingItem) {
+      if (formData.nombre) {
+        const existe = isDuplicate(tiposHabitacion, formData.nombre, t => t.nombre);
+        if (existe) {
+          toast.error(`"${existe.nombre}" ya existe`);
+          return;
+        }
+        const similares = findSimilarItems(tiposHabitacion, formData.nombre, t => t.nombre, 0.5);
+        if (similares.length > 0) {
+          setSuggestionDialog({
+            isOpen: true,
+            itemType: 'tipoHabitacion',
+            itemLabel: 'Tipo de Habitación',
+            newName: formData.nombre,
+            suggestions: similares.map(s => s.item),
+            onSelectExisting: () => {
+              setSuggestionDialog(prev => ({ ...prev, isOpen: false }));
+              closeDialog();
+            },
+            onCreateAnyway: () => {
+              crearTipoHabitacion();
+              setSuggestionDialog(prev => ({ ...prev, isOpen: false }));
+            },
+          });
+          return;
+        }
+      }
+    }
+    crearTipoHabitacion();
+  };
+
+  const crearTipoHabitacion = () => {
     try {
       if (editingItem) db.nomTiposHabitacion.update(editingItem.id, formData);
       else db.nomTiposHabitacion.create({ ...formData, activo: formData.activo ?? true });
@@ -222,6 +553,27 @@ const SuperAdminPanel: React.FC = () => {
     db.auditLog.create({ userId: currentUser?.id || '', action: 'CHANGE_ROLE', entity: 'user', entityId: userId, details: `Rol cambiado a ${newRole}` });
     loadAll();
     toast.success('Rol actualizado');
+  };
+
+  const handleDeleteTipoParticipacion = (t: NomTipoParticipacion) => {
+    handleDeleteWithConfirmation('tipo de participación', t.nombre, () => {
+      db.nomTiposParticipacion.delete(t.id);
+      loadAll();
+    });
+  };
+
+  const handleDeleteTipoTransporte = (t: NomTipoTransporte) => {
+    handleDeleteWithConfirmation('tipo de transporte', t.nombre, () => {
+      db.nomTiposTransporte.delete(t.id);
+      loadAll();
+    });
+  };
+
+  const handleDeleteTipoHabitacion = (t: NomTipoHabitacion) => {
+    handleDeleteWithConfirmation('tipo de habitación', t.nombre, () => {
+      db.nomTiposHabitacion.delete(t.id);
+      loadAll();
+    });
   };
 
   const toggleUserActive = (userId: string, isActive: boolean) => {
@@ -285,6 +637,7 @@ const SuperAdminPanel: React.FC = () => {
             <TabsTrigger value="receptivos">Receptivos</TabsTrigger>
             <TabsTrigger value="empresas">Empresas</TabsTrigger>
             <TabsTrigger value="hoteles">Hoteles</TabsTrigger>
+            <TabsTrigger value="salones">Salones</TabsTrigger>
             <TabsTrigger value="tiposParticipacion">Tipos Participación</TabsTrigger>
             <TabsTrigger value="tiposTransporte">Tipos Transporte</TabsTrigger>
             <TabsTrigger value="tiposHabitacion">Tipos Habitación</TabsTrigger>
@@ -387,6 +740,26 @@ const SuperAdminPanel: React.FC = () => {
             />
           </TabsContent>
 
+          {/* Salones */}
+          <TabsContent value="salones">
+            <NomencladorTable
+              title="Catálogo de Salones" description="Salones de hoteles del sistema"
+              items={salones}
+              columns={[
+                { key: 'codigo', label: 'Código', render: s => <Badge variant="outline">{s.codigo}</Badge> },
+                { key: 'nombre', label: 'Nombre', render: s => <span className="font-medium">{s.nombre}</span> },
+                { key: 'hotelId', label: 'Hotel', render: s => { const h = hoteles.find(h => h.id === s.hotelId); return h ? h.nombre : '-'; } },
+                { key: 'ubicacion', label: 'Ubicación' },
+                { key: 'capacidadMaxima', label: 'Capacidad' },
+                { key: 'estado', label: 'Estado', render: s => <Badge variant={s.estado === 'ACTIVO' ? 'default' : 'secondary'}>{s.estado}</Badge> },
+              ]}
+              searchFields={['codigo', 'nombre', 'ubicacion']}
+              onEdit={s => openDialog('salon', s)}
+              onDelete={handleDeleteSalon}
+              onCreate={() => openDialog('salon')}
+            />
+          </TabsContent>
+
           {/* Tipos Participación */}
           <TabsContent value="tiposParticipacion">
             <NomencladorTable
@@ -400,7 +773,7 @@ const SuperAdminPanel: React.FC = () => {
                 { key: 'activo', label: 'Estado', render: t => <Badge variant={t.activo ? 'default' : 'secondary'}>{t.activo ? 'Activo' : 'Inactivo'}</Badge> },
               ]}
               onEdit={t => openDialog('tipoParticipacion', t)}
-              onDelete={t => { db.nomTiposParticipacion.delete(t.id); loadAll(); }}
+              onDelete={handleDeleteTipoParticipacion}
               onCreate={() => openDialog('tipoParticipacion')}
             />
           </TabsContent>
@@ -419,7 +792,7 @@ const SuperAdminPanel: React.FC = () => {
                 { key: 'activo', label: 'Estado', render: t => <Badge variant={t.activo ? 'default' : 'secondary'}>{t.activo ? 'Activo' : 'Inactivo'}</Badge> },
               ]}
               onEdit={t => openDialog('tipoTransporte', t)}
-              onDelete={t => { db.nomTiposTransporte.delete(t.id); loadAll(); }}
+              onDelete={handleDeleteTipoTransporte}
               onCreate={() => openDialog('tipoTransporte')}
             />
           </TabsContent>
@@ -436,7 +809,7 @@ const SuperAdminPanel: React.FC = () => {
                 { key: 'activo', label: 'Estado', render: t => <Badge variant={t.activo ? 'default' : 'secondary'}>{t.activo ? 'Activo' : 'Inactivo'}</Badge> },
               ]}
               onEdit={t => openDialog('tipoHabitacion', t)}
-              onDelete={t => { db.nomTiposHabitacion.delete(t.id); loadAll(); }}
+              onDelete={handleDeleteTipoHabitacion}
               onCreate={() => openDialog('tipoHabitacion')}
             />
           </TabsContent>
@@ -477,6 +850,147 @@ const SuperAdminPanel: React.FC = () => {
 
           {/* Config */}
           <TabsContent value="config">
+            {/* Wallpaper Configuration */}
+            <Card className="mb-4">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Image className="h-5 w-5" />
+                  Fondo de Diálogos
+                </CardTitle>
+                <CardDescription>
+                  Personaliza el fondo difuminado que se muestra detrás de todos los diálogos del sistema
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Type selector */}
+                <div className="space-y-3">
+                  <Label>Tipo de Fondo</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => updateConfig({ backgroundType: 'wallpaper' })}
+                      className={cn(
+                        'p-4 rounded-xl border-2 transition-all text-left',
+                        wallpaperConfig.backgroundType === 'wallpaper'
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-8 rounded-lg bg-gradient-to-br from-blue-400 to-purple-500" />
+                        <div>
+                          <p className="font-medium">Wallpaper</p>
+                          <p className="text-xs text-muted-foreground">Imágenes de paisajes</p>
+                        </div>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => updateConfig({ backgroundType: 'aurora' })}
+                      className={cn(
+                        'p-4 rounded-xl border-2 transition-all text-left',
+                        wallpaperConfig.backgroundType === 'aurora'
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-8 rounded-lg bg-gradient-to-br from-green-400 via-cyan-400 to-purple-500 animate-pulse" />
+                        <div>
+                          <p className="font-medium">Aurora</p>
+                          <p className="text-xs text-muted-foreground">Efecto boreal animado</p>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Mode selector */}
+                <div className="space-y-3">
+                  <Label>Modo</Label>
+                  <div className="flex gap-2">
+                    {([
+                      { value: 'random', label: 'Aleatorio', icon: Shuffle },
+                      { value: 'sequential', label: 'Secuencial', icon: Palette },
+                      { value: 'fixed', label: 'Fijo', icon: Check },
+                    ] as const).map(({ value, label, icon: Icon }) => (
+                      <button
+                        key={value}
+                        onClick={() => updateConfig({ wallpaperMode: value })}
+                        className={cn(
+                          'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border transition-all',
+                          wallpaperConfig.wallpaperMode === value
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-border hover:border-primary/50'
+                        )}
+                      >
+                        <Icon className="w-4 h-4" />
+                        <span className="text-sm font-medium">{label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Wallpaper selector */}
+                {wallpaperConfig.backgroundType === 'wallpaper' && (
+                  <div className="space-y-3">
+                    <Label>Seleccionar Wallpaper</Label>
+                    <div className="grid grid-cols-6 gap-2 max-h-48 overflow-y-auto p-1">
+                      {wallpapers.map((wp, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => updateConfig({ fixedWallpaper: wp })}
+                          className={cn(
+                            'relative aspect-video rounded-lg overflow-hidden border-2 transition-all hover:scale-105',
+                            wallpaperConfig.fixedWallpaper === wp
+                              ? 'border-primary ring-2 ring-primary/50'
+                              : 'border-transparent hover:border-muted-foreground/30'
+                          )}
+                        >
+                          <img src={wp} alt="" className="w-full h-full object-cover" />
+                          {wallpaperConfig.fixedWallpaper === wp && (
+                            <div className="absolute inset-0 bg-primary/40 flex items-center justify-center">
+                              <Check className="w-5 h-5 text-white drop-shadow-lg" />
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Aurora preset selector */}
+                {wallpaperConfig.backgroundType === 'aurora' && (
+                  <div className="space-y-3">
+                    <Label>Estilo de Aurora</Label>
+                    <div className="grid grid-cols-4 gap-3">
+                      {AURORA_PRESETS.map((preset) => (
+                        <button
+                          key={preset.id}
+                          onClick={() => updateConfig({ fixedAuroraPreset: preset.id })}
+                          className={cn(
+                            'relative p-3 rounded-xl border-2 transition-all',
+                            wallpaperConfig.fixedAuroraPreset === preset.id
+                              ? 'border-primary bg-primary/5'
+                              : 'border-border hover:border-primary/50'
+                          )}
+                        >
+                          <div 
+                            className="w-full h-10 rounded-lg mb-2"
+                            style={{ background: `linear-gradient(135deg, ${preset.colors[0]}, ${preset.colors[1]}, ${preset.colors[2]})` }}
+                          />
+                          <p className="text-xs font-medium text-center">{preset.name}</p>
+                          {wallpaperConfig.fixedAuroraPreset === preset.id && (
+                            <div className="absolute top-1 right-1">
+                              <Check className="w-4 h-4 text-primary" />
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {settings && (
               <Card><CardHeader><CardTitle>Configuración Global</CardTitle></CardHeader><CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -494,8 +1008,8 @@ const SuperAdminPanel: React.FC = () => {
               </CardContent></Card>
             )}
             <Card className="mt-4"><CardHeader><CardTitle>Herramientas Avanzadas</CardTitle></CardHeader><CardContent className="space-y-3">
-              <Button variant="outline" className="w-full" onClick={() => { if (confirm('¿Inicializar CMS?')) { seedCMSData(); window.location.reload(); } }}>Inicializar Datos CMS</Button>
-              <Button variant="destructive" className="w-full" onClick={() => { if (confirm('¿BORRAR TODO?')) { localStorage.clear(); window.location.reload(); } }}>Restablecer Sistema</Button>
+              <Button variant="outline" className="w-full" onClick={handleInitCMS}>Inicializar Datos CMS</Button>
+              <Button variant="destructive" className="w-full" onClick={handleResetSystem}>Restablecer Sistema</Button>
             </CardContent></Card>
           </TabsContent>
 
@@ -572,47 +1086,33 @@ const SuperAdminPanel: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Hotel Dialog */}
-      <Dialog open={dialogType === 'hotel'} onOpenChange={() => closeDialog()}>
-        <DialogContent><DialogHeader><DialogTitle>{editingItem ? 'Editar Hotel' : 'Nuevo Hotel'}</DialogTitle></DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-2"><Label>Nombre *</Label><Input value={formData.nombre || ''} onChange={e => setFormData({ ...formData, nombre: e.target.value })} /></div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2"><Label>Cadena Hotelera</Label><Input value={formData.cadenaHotelera || ''} onChange={e => setFormData({ ...formData, cadenaHotelera: e.target.value })} /></div>
-            <div className="space-y-2"><Label>Estrellas</Label>
-              <Select value={String(formData.categoriaEstrellas || 3)} onValueChange={v => setFormData({ ...formData, categoriaEstrellas: Number(v) })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{[1,2,3,4,5].map(n => <SelectItem key={n} value={String(n)}>{'⭐'.repeat(n)}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2"><Label>Ciudad</Label><Input value={formData.ciudad || ''} onChange={e => setFormData({ ...formData, ciudad: e.target.value })} /></div>
-            <div className="space-y-2"><Label>Teléfono</Label><Input value={formData.telefono || ''} onChange={e => setFormData({ ...formData, telefono: e.target.value })} /></div>
-          </div>
-          <div className="space-y-2"><Label>Email</Label><Input type="email" value={formData.email || ''} onChange={e => setFormData({ ...formData, email: e.target.value })} /></div>
-          <div className="space-y-2"><Label>Dirección</Label><Textarea value={formData.direccion || ''} onChange={e => setFormData({ ...formData, direccion: e.target.value })} rows={2} /></div>
-          <div className="flex items-center gap-2"><Switch checked={formData.activo ?? true} onCheckedChange={v => setFormData({ ...formData, activo: v })} /><Label>Activo</Label></div>
-        </div>
-        <DialogFooter><Button variant="outline" onClick={closeDialog}>Cancelar</Button><Button onClick={handleSaveHotel}>{editingItem ? 'Actualizar' : 'Crear'}</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Hotel Modal - Usando NomenclatorModal */}
+      <NomenclatorModal
+        open={dialogType === 'hotel'}
+        onOpenChange={() => closeDialog()}
+        type="hotel"
+        mode={editingItem ? 'edit' : 'create'}
+        formData={formData}
+        onFormChange={setFormData}
+        errors={formErrors}
+        onSave={handleSaveHotel}
+        onDelete={editingItem ? () => handleDeleteHotel(editingItem) : undefined}
+        similarItems={findSimilarItems(hoteles, formData.nombre || '', h => h.nombre, 0.5).map(s => s.item.nombre)}
+      />
 
-      {/* Tipo Participación Dialog */}
-      <Dialog open={dialogType === 'tipoParticipacion'} onOpenChange={() => closeDialog()}>
-        <DialogContent><DialogHeader><DialogTitle>{editingItem ? 'Editar Tipo' : 'Nuevo Tipo de Participación'}</DialogTitle></DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-2"><Label>Nombre *</Label><Input value={formData.nombre || ''} onChange={e => setFormData({ ...formData, nombre: e.target.value.toUpperCase() })} /></div>
-          <div className="space-y-2"><Label>Descripción</Label><Textarea value={formData.descripcion || ''} onChange={e => setFormData({ ...formData, descripcion: e.target.value })} rows={2} /></div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2"><Switch checked={formData.requierePago ?? false} onCheckedChange={v => setFormData({ ...formData, requierePago: v })} /><Label>Requiere Pago</Label></div>
-            <div className="flex items-center gap-2"><Switch checked={formData.apareceEnListadoPublico ?? false} onCheckedChange={v => setFormData({ ...formData, apareceEnListadoPublico: v })} /><Label>Listado Público</Label></div>
-          </div>
-          <div className="flex items-center gap-2"><Switch checked={formData.activo ?? true} onCheckedChange={v => setFormData({ ...formData, activo: v })} /><Label>Activo</Label></div>
-        </div>
-        <DialogFooter><Button variant="outline" onClick={closeDialog}>Cancelar</Button><Button onClick={handleSaveTipoParticipacion}>{editingItem ? 'Actualizar' : 'Crear'}</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Tipo Participación Modal - Usando NomenclatorModal */}
+      <NomenclatorModal
+        open={dialogType === 'tipoParticipacion'}
+        onOpenChange={() => closeDialog()}
+        type="tipoParticipacion"
+        mode={editingItem ? 'edit' : 'create'}
+        formData={formData}
+        onFormChange={setFormData}
+        errors={formErrors}
+        onSave={handleSaveTipoParticipacion}
+        onDelete={editingItem ? () => { db.nomTiposParticipacion.delete(editingItem.id); loadAll(); closeDialog(); } : undefined}
+        similarItems={findSimilarItems(tiposParticipacion, formData.nombre || '', t => t.nombre, 0.5).map(s => s.item.nombre)}
+      />
 
       {/* Tipo Transporte Dialog */}
       <Dialog open={dialogType === 'tipoTransporte'} onOpenChange={() => closeDialog()}>
@@ -635,18 +1135,85 @@ const SuperAdminPanel: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Tipo Habitación Dialog */}
-      <Dialog open={dialogType === 'tipoHabitacion'} onOpenChange={() => closeDialog()}>
-        <DialogContent><DialogHeader><DialogTitle>{editingItem ? 'Editar Tipo' : 'Nuevo Tipo de Habitación'}</DialogTitle></DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-2"><Label>Nombre *</Label><Input value={formData.nombre || ''} onChange={e => setFormData({ ...formData, nombre: e.target.value })} /></div>
-          <div className="space-y-2"><Label>Descripción</Label><Textarea value={formData.descripcion || ''} onChange={e => setFormData({ ...formData, descripcion: e.target.value })} rows={2} /></div>
-          <div className="space-y-2"><Label>Capacidad Máx. Personas</Label><Input type="number" value={formData.capacidadMaxPersonas || ''} onChange={e => setFormData({ ...formData, capacidadMaxPersonas: Number(e.target.value) })} /></div>
-          <div className="flex items-center gap-2"><Switch checked={formData.activo ?? true} onCheckedChange={v => setFormData({ ...formData, activo: v })} /><Label>Activo</Label></div>
-        </div>
-        <DialogFooter><Button variant="outline" onClick={closeDialog}>Cancelar</Button><Button onClick={handleSaveTipoHabitacion}>{editingItem ? 'Actualizar' : 'Crear'}</Button></DialogFooter>
+      {/* Tipo Habitación Modal - Usando NomenclatorModal */}
+      <NomenclatorModal
+        open={dialogType === 'tipoHabitacion'}
+        onOpenChange={() => closeDialog()}
+        type="tipoHabitacion"
+        mode={editingItem ? 'edit' : 'create'}
+        formData={formData}
+        onFormChange={setFormData}
+        errors={formErrors}
+        onSave={handleSaveTipoHabitacion}
+        onDelete={editingItem ? () => { db.nomTiposHabitacion.delete(editingItem.id); loadAll(); closeDialog(); } : undefined}
+        similarItems={findSimilarItems(tiposHabitacion, formData.nombre || '', t => t.nombre, 0.5).map(s => s.item.nombre)}
+      />
+
+      {/* Salon Modal - Usando NomenclatorModal */}
+      <NomenclatorModal
+        open={dialogType === 'salon'}
+        onOpenChange={() => closeDialog()}
+        type="salon"
+        mode={editingItem ? 'edit' : 'create'}
+        formData={formData}
+        onFormChange={setFormData}
+        errors={formErrors}
+        onSave={handleSaveSalon}
+        onDelete={editingItem ? () => handleDeleteSalon(editingItem) : undefined}
+        similarItems={findSimilarItems(salones, formData.codigo || '', s => s.codigo, 0.5).map(s => s.item.codigo)}
+      />
+
+      {/* Suggestion Dialog */}
+      <Dialog open={suggestionDialog.isOpen} onOpenChange={(open) => !open && setSuggestionDialog(prev => ({ ...prev, isOpen: false }))}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lightbulb className="w-5 h-5 text-yellow-500" />
+              ¿Quiso decir...?
+            </DialogTitle>
+            <DialogDescription>
+              Encontramos {suggestionDialog.itemLabel.toLowerCase()}s similares a "{suggestionDialog.newName}"
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 max-h-60 overflow-y-auto">
+            {suggestionDialog.suggestions.map((item: any) => (
+              <div 
+                key={item.id} 
+                className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                onClick={() => suggestionDialog.onSelectExisting(item)}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">{item.nombre || item.nombreEmpresa || item.nombreHotel || 'Sin nombre'}</p>
+                    {item.descripcion && (
+                      <p className="text-sm text-muted-foreground">{item.descripcion}</p>
+                    )}
+                  </div>
+                  <Badge variant="outline">Seleccionar</Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => suggestionDialog.onCreateAnyway()}
+              className="w-full sm:w-auto"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Crear "{suggestionDialog.newName}"
+            </Button>
+            <Button 
+              variant="ghost" 
+              onClick={() => setSuggestionDialog(prev => ({ ...prev, isOpen: false }))}
+              className="w-full sm:w-auto"
+            >
+              Cancelar
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </DashboardLayout>
   );
 };

@@ -60,7 +60,7 @@ export function runMigrationIfNeeded(): MigrationResult | null {
     return null;
   }
 
-  let result: MigrationResult = {
+  const result: MigrationResult = {
     success: false,
     eventosMigrados: 0,
     subEventosMigrados: 0,

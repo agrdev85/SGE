@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db, CMSArticle, CMSCategory } from '@/lib/database';
+import { normalizeText, isDuplicate, findSimilarItems } from '@/lib/utils';
 import { seedCMSData } from '@/lib/seedCMS';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +18,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import {
   Table,
@@ -37,9 +40,11 @@ import {
   X,
   Tag,
   Star,
-  Search
+  Search,
+  Lightbulb
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 
 const CMSArticlesManager: React.FC = () => {
   const [articles, setArticles] = useState<CMSArticle[]>([]);
@@ -50,6 +55,34 @@ const CMSArticlesManager: React.FC = () => {
   const [newCategory, setNewCategory] = useState<Partial<CMSCategory>>({});
   const [tagInput, setTagInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [suggestionDialog, setSuggestionDialog] = useState<{
+    isOpen: boolean;
+    type: 'article' | 'category';
+    fieldName: string;
+    newValue: string;
+    suggestions: any[];
+    onSelectExisting: (item: any) => void;
+    onCreateAnyway: () => void;
+  }>({
+    isOpen: false,
+    type: 'article',
+    fieldName: '',
+    newValue: '',
+    suggestions: [],
+    onSelectExisting: () => {},
+    onCreateAnyway: () => {},
+  });
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
+    isOpen: boolean;
+    itemName: string;
+    itemType: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    itemName: '',
+    itemType: '',
+    onConfirm: () => {},
+  });
 
   useEffect(() => {
     // Ensure CMS data is seeded
@@ -87,6 +120,34 @@ const CMSArticlesManager: React.FC = () => {
       return;
     }
 
+    if (!currentArticle.id) {
+      const existeTitulo = isDuplicate(articles, currentArticle.title!, a => a.title);
+      if (existeTitulo) {
+        toast.error(`Ya existe un artículo con el título "${existeTitulo.title}"`);
+        return;
+      }
+      const similares = findSimilarItems(articles, currentArticle.title!, a => a.title, 0.6);
+      if (similares.length > 0) {
+        setSuggestionDialog({
+          isOpen: true,
+          type: 'article',
+          fieldName: 'título',
+          newValue: currentArticle.title!,
+          suggestions: similares.map(s => s.item),
+          onSelectExisting: () => setSuggestionDialog(prev => ({ ...prev, isOpen: false })),
+          onCreateAnyway: () => {
+            guardarArticulo();
+            setSuggestionDialog(prev => ({ ...prev, isOpen: false }));
+          },
+        });
+        return;
+      }
+    }
+
+    guardarArticulo();
+  };
+
+  const guardarArticulo = () => {
     try {
       if (currentArticle.id) {
         db.cmsArticles.update(currentArticle.id, currentArticle);
@@ -96,16 +157,23 @@ const CMSArticlesManager: React.FC = () => {
       setIsEditorOpen(false);
       setCurrentArticle(null);
       loadData();
+      toast.success(currentArticle.id ? 'Artículo actualizado' : 'Artículo creado');
     } catch (error) {
       toast.error('Error al guardar el artículo');
     }
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('¿Estás seguro de eliminar este artículo?')) {
-      db.cmsArticles.delete(id);
-      loadData();
-    }
+  const handleDelete = (article: CMSArticle) => {
+    setDeleteConfirmDialog({
+      isOpen: true,
+      itemName: article.title,
+      itemType: 'artículo',
+      onConfirm: () => {
+        db.cmsArticles.delete(article.id);
+        toast.success('Artículo eliminado');
+        loadData();
+      },
+    });
   };
 
   const handleAddCategory = () => {
@@ -114,16 +182,43 @@ const CMSArticlesManager: React.FC = () => {
       return;
     }
 
+    const existeNombre = isDuplicate(categories, newCategory.name!, c => c.name);
+    if (existeNombre) {
+      toast.error(`Ya existe una categoría con el nombre "${existeNombre.name}"`);
+      return;
+    }
+
+    const similares = findSimilarItems(categories, newCategory.name!, c => c.name, 0.5);
+    if (similares.length > 0) {
+      setSuggestionDialog({
+        isOpen: true,
+        type: 'category',
+        fieldName: 'nombre',
+        newValue: newCategory.name!,
+        suggestions: similares.map(s => s.item),
+        onSelectExisting: () => setSuggestionDialog(prev => ({ ...prev, isOpen: false })),
+        onCreateAnyway: () => {
+          guardarCategoria();
+          setSuggestionDialog(prev => ({ ...prev, isOpen: false }));
+        },
+      });
+      return;
+    }
+
+    guardarCategoria();
+  };
+
+  const guardarCategoria = () => {
     db.cmsCategories.create({
       name: newCategory.name,
       slug: newCategory.slug,
       description: newCategory.description,
       orderIndex: categories.length,
     });
-
     setNewCategory({});
     setIsCategoryDialogOpen(false);
     loadData();
+    toast.success('Categoría creada');
   };
 
   const handleAddTag = () => {
@@ -260,7 +355,7 @@ const CMSArticlesManager: React.FC = () => {
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button variant="ghost" size="sm" onClick={() => handleEdit(article)}><Edit2 className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDelete(article.id)}><Trash2 className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDelete(article)}><Trash2 className="w-4 h-4" /></Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -473,10 +568,16 @@ const CMSArticlesManager: React.FC = () => {
                       variant="ghost"
                       size="sm"
                       onClick={() => {
-                        if (confirm('¿Eliminar esta categoría?')) {
-                          db.cmsCategories.delete(cat.id);
-                          loadData();
-                        }
+                        setDeleteConfirmDialog({
+                          isOpen: true,
+                          itemName: cat.name,
+                          itemType: 'categoría',
+                          onConfirm: () => {
+                            db.cmsCategories.delete(cat.id);
+                            loadData();
+                            toast.success('Categoría eliminada');
+                          },
+                        });
                       }}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -488,6 +589,67 @@ const CMSArticlesManager: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={suggestionDialog.isOpen} onOpenChange={(open) => !open && setSuggestionDialog(prev => ({ ...prev, isOpen: false }))}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lightbulb className="w-5 h-5 text-yellow-500" />
+              ¿Quiso decir...?
+            </DialogTitle>
+            <DialogDescription>
+              Encontramos {suggestionDialog.type === 'article' ? 'artículos' : 'categorías'} similares con {suggestionDialog.fieldName} "{suggestionDialog.newValue}"
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 max-h-60 overflow-y-auto">
+            {suggestionDialog.suggestions.map((item: any) => (
+              <div 
+                key={item.id} 
+                className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                onClick={() => suggestionDialog.onSelectExisting(item)}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">{item.title || item.name}</p>
+                    {item.slug && <p className="text-sm text-muted-foreground">/{item.slug}</p>}
+                  </div>
+                  <Badge variant="outline">Seleccionar</Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => suggestionDialog.onCreateAnyway()}
+              className="w-full sm:w-auto"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Crear "{suggestionDialog.newValue}"
+            </Button>
+            <Button 
+              variant="ghost" 
+              onClick={() => setSuggestionDialog(prev => ({ ...prev, isOpen: false }))}
+              className="w-full sm:w-auto"
+            >
+              Cancelar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmationDialog
+        open={deleteConfirmDialog.isOpen}
+        onOpenChange={(open) => !open && setDeleteConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+        title={`¿Eliminar ${deleteConfirmDialog.itemType}?`}
+        description={`¿Está seguro de que desea eliminar este ${deleteConfirmDialog.itemType}? Esta acción no se puede deshacer.`}
+        itemName={deleteConfirmDialog.itemName}
+        itemType={deleteConfirmDialog.itemType}
+        variant="danger"
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        onConfirm={deleteConfirmDialog.onConfirm}
+      />
     </div>
   );
 };

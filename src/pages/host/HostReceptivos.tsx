@@ -11,9 +11,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { hostDb, Receptivo } from '@/lib/hostDatabase';
-import { Plus, Edit, Trash2, ArrowLeft, Search, Building2, Calendar } from 'lucide-react';
+import { normalizeText, isDuplicate } from '@/lib/utils';
+import { Plus, Pencil, Trash2, ArrowLeft, Search, Building2, Calendar, Edit } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 
 export default function HostReceptivos() {
   const navigate = useNavigate();
@@ -28,6 +30,11 @@ export default function HostReceptivos() {
     nombre: '', tipo: 'no_cliente' as 'cliente' | 'no_cliente', contratoActivo: false,
     emailContacto: '', telefono: '', pais: '',
   });
+
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    open: boolean;
+    receptivo: Receptivo | null;
+  }>({ open: false, receptivo: null });
 
   useEffect(() => { loadData(); }, []);
   const loadData = () => setReceptivos(hostDb.receptivos.getAll());
@@ -52,6 +59,13 @@ export default function HostReceptivos() {
 
   const handleSave = () => {
     if (!form.nombre) { toast.error('El nombre es obligatorio'); return; }
+
+    const duplicado = receptivos.find(r => normalizeText(r.nombre) === normalizeText(form.nombre) && (!editing || r.id !== editing.id));
+    if (duplicado) {
+      toast.error(`Ya existe un receptivo con el nombre "${duplicado.nombre}"`);
+      return;
+    }
+
     try {
       if (editing) { hostDb.receptivos.update(editing.id, form); toast.success('Receptivo actualizado'); }
       else { hostDb.receptivos.create(form); toast.success('Receptivo creado'); }
@@ -64,7 +78,16 @@ export default function HostReceptivos() {
     const evtCount = hostDb.eventosConfirmados.getByReceptivo(r.id).length;
     const solCount = hostDb.solicitudes.getByReceptivo(r.id).length;
     if (evtCount > 0 || solCount > 0) { toast.error(`No se puede eliminar: tiene ${evtCount} evento(s) y ${solCount} solicitud(es)`); return; }
-    if (confirm('¿Eliminar este receptivo?')) { hostDb.receptivos.delete(r.id); toast.success('Eliminado'); loadData(); }
+    setDeleteConfirm({ open: true, receptivo: r });
+  };
+
+  const confirmDeleteReceptivo = () => {
+    if (deleteConfirm.receptivo) {
+      hostDb.receptivos.delete(deleteConfirm.receptivo.id);
+      toast.success('Eliminado');
+      loadData();
+    }
+    setDeleteConfirm({ open: false, receptivo: null });
   };
 
   const getEventCount = (id: string) => hostDb.eventosConfirmados.getByReceptivo(id).length;
@@ -127,7 +150,7 @@ export default function HostReceptivos() {
                   <TableCell className="text-center">{getSolicitudCount(r.id)}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(r)}><Edit className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(r)}><Pencil className="h-4 w-4" /></Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(r)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </TableCell>
@@ -169,6 +192,17 @@ export default function HostReceptivos() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmationDialog
+        open={deleteConfirm.open}
+        onOpenChange={(open) => setDeleteConfirm(prev => ({ ...prev, open }))}
+        title="Eliminar Receptivo"
+        description="¿Está seguro de que desea eliminar este receptivo? Esta acción no se puede deshacer."
+        itemName={deleteConfirm.receptivo?.nombre}
+        itemType="Receptivo"
+        variant="danger"
+        onConfirm={confirmDeleteReceptivo}
+      />
     </DashboardLayout>
   );
 }

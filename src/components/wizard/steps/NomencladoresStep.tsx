@@ -10,8 +10,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Edit, Trash2, Save, Globe, Layers, Target, Activity } from 'lucide-react';
+import { Plus, Pencil, Trash2, Save, Globe, Layers, Target, Activity, Edit } from 'lucide-react';
 import { toast } from 'sonner';
+import { useConfirmation } from '@/hooks/useConfirmation';
 
 const TIPOS_NOMENCLADORES = [
   { tipo: 'TEMATICA' as TipoNomencladorEvento, label: 'Temáticas', icon: Globe },
@@ -43,6 +44,7 @@ interface NomencladorFormData {
 
 export function NomencladoresStep() {
   const { evento, guardarPaso, state } = useWizard();
+  const { confirm, success } = useConfirmation();
   const [nomencladores, setNomencladores] = useState<NomencladorEvento[]>([]);
   const [activeTab, setActiveTab] = useState<TipoNomencladorEvento>('TEMATICA');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -130,12 +132,19 @@ export function NomencladoresStep() {
     }
   };
 
-  const handleDelete = (n: NomencladorEvento) => {
-    if (confirm('¿Eliminar este nomenclador?')) {
-      db.nomencladoresEvento.delete(n.id);
-      toast.success('Nomenclador eliminado');
-      loadData();
-    }
+  const handleDelete = async (n: NomencladorEvento) => {
+    await confirm({
+      title: `¿Eliminar ${n.tipo}?`,
+      description: `¿Está seguro de que desea eliminar "${n.nombre}"? Esta acción no se puede deshacer.`,
+      variant: 'danger',
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      onConfirm: async () => {
+        db.nomencladoresEvento.delete(n.id);
+        loadData();
+      },
+      successMessage: `"${n.nombre}" ha sido eliminado correctamente.`,
+    });
   };
 
   const handleGuardarPaso = async () => {
@@ -242,7 +251,7 @@ export function NomencladoresStep() {
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-1">
                                 <Button variant="ghost" size="icon" onClick={() => openEdit(item)}>
-                                  <Edit className="w-4 h-4" />
+                                  <Pencil className="w-4 h-4" />
                                 </Button>
                                 <Button variant="ghost" size="icon" onClick={() => handleDelete(item)}>
                                   <Trash2 className="w-4 h-4 text-destructive" />

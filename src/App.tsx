@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { EventProvider } from "@/contexts/EventContext";
+import { WallpaperProvider } from "@/hooks/useWallpaperConfig";
+import { DialogProvider } from "@/components/ui/ConfirmationDialog";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -49,11 +51,13 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <EventProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
+        <WallpaperProvider>
+          <DialogProvider>
+            <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
@@ -93,8 +97,10 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
             <ScrollToTop />
-          </BrowserRouter>
-        </TooltipProvider>
+            </BrowserRouter>
+          </TooltipProvider>
+          </DialogProvider>
+        </WallpaperProvider>
       </EventProvider>
     </AuthProvider>
   </QueryClientProvider>

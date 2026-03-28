@@ -14,8 +14,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { MultiImageUpload } from '@/components/ui/multi-image-upload';
 import { ImageGallery } from '@/components/ui/image-gallery';
-import { Plus, Edit, Trash2, Users, Calendar, Clock, DollarSign, Bus, Globe, Save, Eye, ChevronRight, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Calendar, Clock, DollarSign, Bus, Globe, Save, Eye, ChevronRight, X, Edit } from 'lucide-react';
 import { toast } from 'sonner';
+import { useConfirmation } from '@/hooks/useConfirmation';
 
 const TIPOS_VEHICULO = [
   { id: 'tt1', nombre: 'Autobús' },
@@ -52,6 +53,7 @@ interface ActividadFormData {
 
 export function ProgramaSocialStep() {
   const { evento, guardarPaso, state } = useWizard();
+  const { confirm } = useConfirmation();
   const [actividades, setActividades] = useState<ActividadSocial[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
@@ -182,12 +184,19 @@ export function ProgramaSocialStep() {
     }
   };
 
-  const handleDelete = (a: ActividadSocial) => {
-    if (confirm('¿Eliminar esta actividad?')) {
-      db.actividadesSociales.delete(a.id);
-      toast.success('Actividad eliminada');
-      loadActividades();
-    }
+  const handleDelete = async (a: ActividadSocial) => {
+    await confirm({
+      title: '¿Eliminar actividad?',
+      description: `¿Está seguro de que desea eliminar "${a.nombre}"? Esta acción no se puede deshacer.`,
+      variant: 'danger',
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      onConfirm: async () => {
+        db.actividadesSociales.delete(a.id);
+        loadActividades();
+      },
+      successMessage: `"${a.nombre}" ha sido eliminada correctamente.`,
+    });
   };
 
   const toggleIdioma = (idioma: string) => {
@@ -353,7 +362,7 @@ export function ProgramaSocialStep() {
                           <Eye className="w-4 h-4" />
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => openEdit(actividad)}>
-                          <Edit className="w-4 h-4" />
+                          <Pencil className="w-4 h-4" />
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => handleDelete(actividad)}>
                           <Trash2 className="w-4 h-4 text-destructive" />
@@ -665,7 +674,7 @@ export function ProgramaSocialStep() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsViewOpen(false)}>Cerrar</Button>
             <Button onClick={() => { setIsViewOpen(false); if (viewing) openEdit(viewing); }}>
-              <Edit className="w-4 h-4 mr-2" />
+              <Pencil className="w-4 h-4 mr-2" />
               Editar
             </Button>
           </DialogFooter>
@@ -678,6 +687,7 @@ export function ProgramaSocialStep() {
           {isSaving ? 'Guardando...' : 'Guardar Programa Social'}
         </Button>
       </div>
+
     </div>
   );
 }

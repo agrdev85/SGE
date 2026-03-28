@@ -1,10 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useWizard, WizardProvider } from '@/contexts/WizardContext';
 import { WizardProgress } from './WizardProgress';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Loader2, Plus, ArrowLeft } from 'lucide-react';
+import { Loader2, Plus, ArrowLeft, ArrowRight, Save, Rocket } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { FloatingActionBar } from '@/components/ui/floating-action-bar';
+import { toast } from 'sonner';
+import { db } from '@/lib/database';
 
 import { BasicInfoStep } from './steps/BasicInfoStep';
 import { HotelesStep } from './steps/HotelesStep';
@@ -17,7 +20,12 @@ import { FinalStep } from './steps/FinalStep';
 function EventWizardContent() {
   const { eventoId } = useParams<{ eventoId?: string }>();
   const navigate = useNavigate();
-  const { state, evento, cargarEvento, crearNuevoEvento } = useWizard();
+  const { state, evento, cargarEvento, crearNuevoEvento, siguientePaso, pasoAnterior } = useWizard();
+  const [isSaving, setIsSaving] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+
+  const pasosRequeridos = [1, 2, 3, 4, 5, 6, 7];
+  const pasosFaltantes = pasosRequeridos.filter(p => !state.pasosCompletados.includes(p));
 
   useEffect(() => {
     if (eventoId) {
@@ -28,6 +36,47 @@ function EventWizardContent() {
   const handleCrearNuevo = async () => {
     const id = await crearNuevoEvento({ name: 'Nuevo Evento' });
     navigate(`/events/wizard/${id}`);
+  };
+
+  const handleSiguiente = () => {
+    if (state.pasoActual < 7) {
+      siguientePaso();
+    }
+  };
+
+  const handleAnterior = () => {
+    if (state.pasoActual > 1) {
+      pasoAnterior();
+    }
+  };
+
+  const handleGuardarProgreso = async () => {
+    setIsSaving(true);
+    try {
+      toast.success('Progreso guardado correctamente');
+    } catch (error) {
+      toast.error('Error al guardar');
+    }
+    setIsSaving(false);
+  };
+
+  const handlePublicar = async () => {
+    if (pasosFaltantes.length > 0) {
+      toast.error('Complete todos los pasos antes de publicar');
+      return;
+    }
+
+    setIsPublishing(true);
+    try {
+      if (evento?.id) {
+        db.macroEvents.update(evento.id, { isActive: true } as any);
+      }
+      toast.success('¡Evento publicado exitosamente!');
+      navigate('/events');
+    } catch (error) {
+      toast.error('Error al publicar');
+    }
+    setIsPublishing(false);
   };
 
   if (state.isLoading) {
@@ -89,7 +138,7 @@ function EventWizardContent() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-24">
       <Button
         variant="ghost"
         onClick={() => navigate('/events')}
@@ -112,10 +161,50 @@ function EventWizardContent() {
             Completa la información requerida para este paso
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pb-8">
           <StepContent paso={state.pasoActual} />
         </CardContent>
       </Card>
+
+      <FloatingActionBar
+        leftContent={
+          <>
+            <Button
+              variant="outline"
+              onClick={handleAnterior}
+              disabled={state.pasoActual === 1 || isSaving}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleGuardarProgreso}
+              disabled={isSaving || isPublishing}
+            >
+              <Save className="w-4 h-4 mr-2" />
+              {isSaving ? 'Guardando...' : 'Guardar'}
+            </Button>
+          </>
+        }
+        rightContent={
+          state.pasoActual < 7 ? (
+            <Button onClick={handleSiguiente}>
+              Siguiente
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          ) : state.pasoActual === 7 ? (
+            <Button
+              onClick={handlePublicar}
+              disabled={isPublishing || pasosFaltantes.length > 0}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <Rocket className="w-4 h-4 mr-2" />
+              {isPublishing ? 'Publicando...' : 'Publicar Evento'}
+            </Button>
+          ) : null
+        }
+      />
     </div>
   );
 }

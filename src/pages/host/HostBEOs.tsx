@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { hostDb, BEO, EventoConfirmado } from '@/lib/hostDatabase';
-import { Plus, Search, Eye, Edit, FileText, Send, Check, ArrowLeft, Download, Trash2, History } from 'lucide-react';
+import { Plus, Search, Eye, Pencil, FileText, Send, Check, ArrowLeft, Download, Trash2, History, Edit } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -215,7 +215,7 @@ export default function HostBEOs() {
                   <TableCell><Badge className={`text-xs ${estadoColors[beo.estado] || ''}`}>{beo.estado.replace('_', ' ')}</Badge></TableCell>
                   <TableCell onClick={e => e.stopPropagation()}>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(beo)}><Edit className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(beo)}><Pencil className="h-4 w-4" /></Button>
                       {beo.estado === 'borrador' && <Button variant="ghost" size="icon" className="h-8 w-8 text-info" onClick={() => handleEnviar(beo)} title="Enviar al cliente"><Send className="h-4 w-4" /></Button>}
                       {beo.estado === 'enviado_cliente' && <Button variant="ghost" size="icon" className="h-8 w-8 text-accent" onClick={() => handleAprobar(beo)} title="Aprobar"><Check className="h-4 w-4" /></Button>}
                     </div>

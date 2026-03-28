@@ -9,8 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Edit, Trash2, Save, Bus, DollarSign, MapPin } from 'lucide-react';
+import { Plus, Pencil, Trash2, Save, Bus, DollarSign, MapPin, Edit } from 'lucide-react';
 import { toast } from 'sonner';
+import { useConfirmation } from '@/hooks/useConfirmation';
 
 interface RutaFormData {
   nombre: string;
@@ -25,6 +26,7 @@ interface RutaFormData {
 
 export function TransporteStep() {
   const { evento, guardarPaso, state } = useWizard();
+  const { confirm } = useConfirmation();
   const [tiposVehiculo, setTiposVehiculo] = useState<NomTipoTransporte[]>([]);
   const [rutas, setRutas] = useState<RutaTransporte[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -107,12 +109,19 @@ export function TransporteStep() {
     }
   };
 
-  const handleDelete = (r: RutaTransporte) => {
-    if (confirm('¿Eliminar esta ruta?')) {
-      db.rutasTransporte.delete(r.id);
-      toast.success('Ruta eliminada');
-      loadData();
-    }
+  const handleDelete = async (r: RutaTransporte) => {
+    await confirm({
+      title: '¿Eliminar ruta?',
+      description: `¿Está seguro de que desea eliminar "${r.nombre}"? Esta acción no se puede deshacer.`,
+      variant: 'danger',
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      onConfirm: async () => {
+        db.rutasTransporte.delete(r.id);
+        loadData();
+      },
+      successMessage: `"${r.nombre}" ha sido eliminada correctamente.`,
+    });
   };
 
   const handleGuardarPaso = async () => {
@@ -186,7 +195,7 @@ export function TransporteStep() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-center">
-                      <span>${ruta.precio.moneda} {ruta.precio.monedaSeleccionada}</span>
+                      <span>${ruta.precio.moneda} {ruta.precio.monedaSeleccionada || ruta.precio.monedaSeleccionada}</span>
                     </TableCell>
                     <TableCell>
                       <Badge variant={ruta.activo ? 'default' : 'secondary'}>
@@ -196,7 +205,7 @@ export function TransporteStep() {
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
                         <Button variant="ghost" size="icon" onClick={() => openEdit(ruta)}>
-                          <Edit className="w-4 h-4" />
+                          <Pencil className="w-4 h-4" />
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => handleDelete(ruta)}>
                           <Trash2 className="w-4 h-4 text-destructive" />
@@ -247,9 +256,9 @@ export function TransporteStep() {
               </div>
               <div>
                 <p className="text-2xl font-bold">
-                  ${rutas.reduce((sum, r) => sum + r.precio.moneda, 0)}
+                  ${rutas.reduce((sum, r) => sum + (r.precio.monedaSeleccionada === 'USD' ? r.precio.moneda : 0), 0)}
                 </p>
-                <p className="text-xs text-muted-foreground">USD Total</p>
+                <p className="text-xs text-muted-foreground">Total USD</p>
               </div>
             </div>
           </CardContent>
@@ -365,6 +374,7 @@ export function TransporteStep() {
           {isSaving ? 'Guardando...' : 'Guardar Transporte'}
         </Button>
       </div>
+
     </div>
   );
 }

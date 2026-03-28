@@ -9,8 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Edit, Trash2, Send, Eye, Mail, CheckCircle, AlertCircle } from 'lucide-react';
+import { Plus, Pencil, Trash2, Send, Eye, Mail, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 
 interface EmailTemplateManagerProps {
   event: Event;
@@ -55,6 +56,18 @@ export function EmailTemplateManager({ event }: EmailTemplateManagerProps) {
     name: '',
     subject: '',
     htmlBody: '',
+  });
+
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
+    isOpen: boolean;
+    itemName: string;
+    itemId: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    itemName: '',
+    itemId: '',
+    onConfirm: () => {},
   });
 
   useEffect(() => {
@@ -133,12 +146,17 @@ export function EmailTemplateManager({ event }: EmailTemplateManagerProps) {
     }
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('¿Eliminar esta plantilla?')) {
-      db.emailTemplates.delete(id);
-      toast.success('Plantilla eliminada');
-      loadTemplates();
-    }
+  const handleDelete = (template: EmailTemplate) => {
+    setDeleteConfirmDialog({
+      isOpen: true,
+      itemName: template.subject || template.name || 'Plantilla',
+      itemId: template.id,
+      onConfirm: () => {
+        db.emailTemplates.delete(template.id);
+        toast.success('Plantilla eliminada');
+        loadTemplates();
+      },
+    });
   };
 
   const openSendDialog = (template: EmailTemplate) => {
@@ -254,9 +272,9 @@ export function EmailTemplateManager({ event }: EmailTemplateManagerProps) {
                       <Eye className="h-4 w-4" />
                     </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(template)}>
-                      <Edit className="h-4 w-4" />
+                      <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(template.id)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(template)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -465,6 +483,19 @@ export function EmailTemplateManager({ event }: EmailTemplateManagerProps) {
           )}
         </DialogContent>
       </Dialog>
+
+      <ConfirmationDialog
+        open={deleteConfirmDialog.isOpen}
+        onOpenChange={(open) => !open && setDeleteConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+        title="¿Eliminar plantilla de email?"
+        description="¿Está seguro de que desea eliminar esta plantilla de email? Esta acción no se puede deshacer."
+        itemName={deleteConfirmDialog.itemName}
+        itemType="plantilla de email"
+        variant="danger"
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        onConfirm={deleteConfirmDialog.onConfirm}
+      />
     </div>
   );
 }

@@ -3,6 +3,15 @@
 
 import { toast } from "sonner";
 
+export const STORAGE_PREFIX = 'sge_';
+
+export function broadcastDataChange(collection: string) {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(`${STORAGE_PREFIX}last_change_${collection}`, Date.now().toString());
+    window.dispatchEvent(new CustomEvent('sge-data-change', { detail: { collection } }));
+  }
+}
+
 // Types
 export type UserRole = 'USER' | 'REVIEWER' | 'COMMITTEE' | 'SUPERADMIN' | 'ADMIN_RECEPTIVO' | 'ADMIN_EMPRESA' | 'COORDINADOR_HOTEL' | 'LECTOR_RECEPTIVO' | 'LECTOR_EMPRESA';
 
@@ -684,6 +693,7 @@ class Database {
 
   private setCollection<T>(key: string, data: T[]): void {
     localStorage.setItem(`db_${key}`, JSON.stringify(data));
+    broadcastDataChange(key);
   }
 
   private generateId(): string {

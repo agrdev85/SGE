@@ -12,8 +12,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { db, Event, MacroEvent, EventSession, FormField, SessionAttendance } from '@/lib/database';
+import { normalizeText, isDuplicate } from '@/lib/utils';
 import {
-  Plus, Calendar, Users, FileText, Edit, Trash2, Settings2, Mail, Image, Palette,
+  Plus, Calendar, Users, FileText, Pencil, Trash2, Settings2, Mail, Image, Palette,
   ArrowLeft, Wand2, Award, IdCard, Search, Eye, Clock, CheckSquare, Layers, CalendarDays, ChevronRight, Filter,
   Hotel, Ticket, MapPin
 } from 'lucide-react';
@@ -28,6 +29,7 @@ import { CertificateManager } from '@/components/CertificateManager';
 import { CredentialsManager } from '@/components/CredentialsManager';
 import EventContentEditor from '@/components/EventContentEditor';
 import { toast } from 'sonner';
+import { ConfirmationDialog, SuccessDialog } from '@/components/ui/ConfirmationDialog';
 
 type ViewMode = 'list' | 'macro-detail' | 'event-detail' | 'form-builder' | 'email-templates' | 'jury-assignment' | 'certificates' | 'credentials' | 'attendance';
 
@@ -137,11 +139,22 @@ export default function Events() {
 
   // ===== MACRO EVENT HANDLERS =====
 
-  const handleDeleteMacro = (me: MacroEvent) => {
+  const handleDeleteMacro = async (me: MacroEvent) => {
     if (me.isActive) { toast.error('Solo se puede eliminar eventos inactivos'); return; }
-    if (confirm('¿Eliminar este evento?')) {
+    const confirmed = await ConfirmationDialog.show({
+      title: 'Eliminar Evento',
+      description: '¿Está seguro de que desea eliminar este evento? Esta acción no se puede deshacer.',
+      variant: 'danger',
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+    });
+    if (confirmed) {
       db.macroEvents.delete(me.id);
-      toast.success('Evento eliminado');
+      await SuccessDialog.show({
+        title: '¡Eliminado!',
+        description: 'Evento eliminado correctamente.',
+        autoClose: 2000,
+      });
       loadAll();
     }
   };
@@ -179,6 +192,14 @@ export default function Events() {
     }
     const macro = db.macroEvents.getById(eventForm.macroEventId);
     if (!macro) { toast.error('Evento no encontrado'); return; }
+
+    const eventosDelMacro = db.events.getAll().filter(e => e.macroEventId === eventForm.macroEventId);
+    const duplicado = eventosDelMacro.find(e => normalizeText(e.name) === normalizeText(eventForm.name) && (!editingEvent || e.id !== editingEvent.id));
+    if (duplicado) {
+      toast.error(`Ya existe un Sub Evento con el nombre "${duplicado.name}" en este evento`);
+      return;
+    }
+
     try {
       const colors = {
         primaryColor: (macro as any).primaryColor || '#1e40af',
@@ -198,9 +219,24 @@ export default function Events() {
     } catch (e: any) { toast.error(e.message || 'Error al guardar'); }
   };
 
-  const handleDeleteEvent = (event: Event) => {
+  const handleDeleteEvent = async (event: Event) => {
     if (event.isActive) { toast.error('Solo se puede eliminar eventos inactivos'); return; }
-    if (confirm('¿Eliminar este Sub Evento?')) { db.events.delete(event.id); toast.success('Sub Evento eliminado'); loadAll(); }
+    const confirmed = await ConfirmationDialog.show({
+      title: 'Eliminar Sub Evento',
+      description: '¿Está seguro de que desea eliminar este Sub Evento? Esta acción no se puede deshacer.',
+      variant: 'danger',
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+    });
+    if (confirmed) {
+      db.events.delete(event.id);
+      await SuccessDialog.show({
+        title: '¡Eliminado!',
+        description: 'Sub Evento eliminado correctamente.',
+        autoClose: 2000,
+      });
+      loadAll();
+    }
   };
 
   const toggleEventStatus = (event: Event) => {
@@ -248,8 +284,23 @@ export default function Events() {
     } catch (e: any) { toast.error(e.message || 'Error'); }
   };
 
-  const handleDeleteSession = (session: EventSession) => {
-    if (confirm('¿Eliminar esta sesión?')) { db.eventSessions.delete(session.id); toast.success('Sesión eliminada'); loadAll(); }
+  const handleDeleteSession = async (session: EventSession) => {
+    const confirmed = await ConfirmationDialog.show({
+      title: 'Eliminar Sesión',
+      description: '¿Está seguro de que desea eliminar esta sesión? Esta acción no se puede deshacer.',
+      variant: 'danger',
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+    });
+    if (confirmed) {
+      db.eventSessions.delete(session.id);
+      await SuccessDialog.show({
+        title: '¡Eliminado!',
+        description: 'Sesión eliminada correctamente.',
+        autoClose: 2000,
+      });
+      loadAll();
+    }
   };
 
   // ===== ATTENDANCE =====
@@ -786,7 +837,7 @@ export default function Events() {
               <p className="text-muted-foreground">{selectedEvent.nameEn} · {macro?.name || ''}</p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => openEditEvent(selectedEvent)}><Edit className="h-4 w-4 mr-2" />Editar</Button>
+              <Button variant="outline" onClick={() => openEditEvent(selectedEvent)}><Pencil className="h-4 w-4 mr-2" />Editar</Button>
               <Button variant="outline" onClick={goBackToMacroDetail}><ArrowLeft className="h-4 w-4 mr-2" />Volver</Button>
             </div>
           </div>
@@ -857,7 +908,7 @@ export default function Events() {
                       <TableCell>
                         <div className="flex gap-1">
                           <Button variant="ghost" size="icon" onClick={() => openAttendance(session)} title="Asistencia"><CheckSquare className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => openEditSession(session)} title="Editar"><Edit className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => openEditSession(session)} title="Editar"><Pencil className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" onClick={() => handleDeleteSession(session)} title="Eliminar"><Trash2 className="h-4 w-4" /></Button>
                         </div>
                       </TableCell>
@@ -902,12 +953,9 @@ export default function Events() {
           </div>
 
           <Tabs value={activeDetailTab} onValueChange={setActiveDetailTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="info"><FileText className="h-4 w-4 mr-1" />Info</TabsTrigger>
-              <TabsTrigger value="hoteles"><Hotel className="h-4 w-4 mr-1" />Hoteles</TabsTrigger>
-              <TabsTrigger value="salones"><MapPin className="h-4 w-4 mr-1" />Salones</TabsTrigger>
               <TabsTrigger value="subeventos"><Layers className="h-4 w-4 mr-1" />Sub Eventos</TabsTrigger>
-              <TabsTrigger value="programa"><Ticket className="h-4 w-4 mr-1" />Programa</TabsTrigger>
               <TabsTrigger value="herramientas"><Settings2 className="h-4 w-4 mr-1" />Herramientas</TabsTrigger>
             </TabsList>
 
@@ -937,83 +985,6 @@ export default function Events() {
                   <p className="text-sm text-muted-foreground">Hoteles</p>
                 </Card>
               </div>
-            </TabsContent>
-
-            {/* TAB: HOTELES */}
-            <TabsContent value="hoteles" className="space-y-4">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Hoteles del Evento</CardTitle>
-                  <Button size="sm" variant="hero" onClick={() => setIsHotelDialogOpen(true)}>
-                    <Plus className="h-4 w-4 mr-1" />Asignar Hotel
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  {db.eventoHoteles.getByEvento(selectedMacro.id).length === 0 ? (
-                    <p className="text-center py-8 text-muted-foreground">No hay hoteles asignados</p>
-                  ) : (
-                    <Table>
-                      <TableHeader><TableRow><TableHead>Hotel</TableHead><TableHead>Ciudad</TableHead><TableHead>Acciones</TableHead></TableRow></TableHeader>
-                      <TableBody>
-                        {db.eventoHoteles.getByEvento(selectedMacro.id).map(eh => {
-                          const hotel = db.nomHoteles.getById(eh.hotelId);
-                          return hotel ? (
-                            <TableRow key={eh.id}>
-                              <TableCell className="font-medium">{hotel.nombre}</TableCell>
-                              <TableCell>{hotel.ciudad || '-'}</TableCell>
-                              <TableCell>
-                                <Button variant="ghost" size="sm" onClick={() => {
-                                  db.eventoHoteles.delete(eh.id);
-                                  setSelectedMacro(db.macroEvents.getById(selectedMacro.id));
-                                }}>Eliminar</Button>
-                              </TableCell>
-                            </TableRow>
-                          ) : null;
-                        })}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* TAB: SALONES */}
-            <TabsContent value="salones" className="space-y-4">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Salones Asignados</CardTitle>
-                  <Button size="sm" variant="hero" onClick={() => setIsSalonDialogOpen(true)}>
-                    <Plus className="h-4 w-4 mr-1" />Asignar Salon
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  {db.eventoSalones.getByEvento(selectedMacro.id).length === 0 ? (
-                    <p className="text-center py-8 text-muted-foreground">No hay salones asignados</p>
-                  ) : (
-                    <Table>
-                      <TableHeader><TableRow><TableHead>Salon</TableHead><TableHead>Hotel</TableHead><TableHead>Acciones</TableHead></TableRow></TableHeader>
-                      <TableBody>
-                        {db.eventoSalones.getByEvento(selectedMacro.id).map(es => {
-                          const salon = db.salones.getById(es.salonId);
-                          const hotel = salon ? db.nomHoteles.getById(salon.hotelId) : null;
-                          return salon ? (
-                            <TableRow key={es.id}>
-                              <TableCell className="font-medium">{salon.nombre}</TableCell>
-                              <TableCell>{hotel?.nombre || '-'}</TableCell>
-                              <TableCell>
-                                <Button variant="ghost" size="sm" onClick={() => {
-                                  db.eventoSalones.delete(es.id);
-                                  setSelectedMacro(db.macroEvents.getById(selectedMacro.id));
-                                }}>Eliminar</Button>
-                              </TableCell>
-                            </TableRow>
-                          ) : null;
-                        })}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
             </TabsContent>
 
             {/* TAB: SUB EVENTOS */}
@@ -1047,44 +1018,8 @@ export default function Events() {
                             <TableCell>
                               <div className="flex gap-1">
                                 <Button variant="ghost" size="icon" onClick={() => openEventDetail(event)}><Eye className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" onClick={() => openEditEvent(event)}><Edit className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" onClick={() => openEditEvent(event)}><Pencil className="h-4 w-4" /></Button>
                               </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* TAB: PROGRAMA SOCIAL */}
-            <TabsContent value="programa" className="space-y-4">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Programa Social</CardTitle>
-                  <Button size="sm" variant="hero" onClick={() => setIsActividadDialogOpen(true)}>
-                    <Plus className="h-4 w-4 mr-1" />Nueva Actividad
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  {db.actividadesSociales.getByEvento(selectedMacro.id).length === 0 ? (
-                    <p className="text-center py-8 text-muted-foreground">No hay actividades sociales</p>
-                  ) : (
-                    <Table>
-                      <TableHeader><TableRow><TableHead>Nombre</TableHead><TableHead>Fecha</TableHead><TableHead>Precio</TableHead><TableHead>Acciones</TableHead></TableRow></TableHeader>
-                      <TableBody>
-                        {db.actividadesSociales.getByEvento(selectedMacro.id).map(act => (
-                          <TableRow key={act.id}>
-                            <TableCell className="font-medium">{act.nombre}</TableCell>
-                            <TableCell>{act.fecha ? new Date(act.fecha).toLocaleDateString('es-ES') : '-'}</TableCell>
-                            <TableCell>{act.esGratuita ? 'Gratis' : `${act.costo.moneda} ${act.costo.monedaSeleccionada}`}</TableCell>
-                            <TableCell>
-                              <Button variant="ghost" size="sm" onClick={() => {
-                                db.actividadesSociales.delete(act.id);
-                                setSelectedMacro(db.macroEvents.getById(selectedMacro.id));
-                              }}>Eliminar</Button>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -1188,7 +1123,7 @@ export default function Events() {
                   <TableCell onClick={e => e.stopPropagation()}>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" onClick={() => openMacroDetail(me)} title="Ver detalle"><Eye className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => navigate(`/events/wizard/${me.id}`)} title="Editar"><Edit className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => navigate(`/events/wizard/${me.id}`)} title="Editar"><Pencil className="h-4 w-4" /></Button>
                       <Button variant="ghost" size="icon" onClick={() => handleDeleteMacro(me)} title="Eliminar" disabled={me.isActive}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </TableCell>

@@ -61,7 +61,7 @@ export interface Review {
 }
 
 // Mock data store (simulating database)
-let mockUsers: User[] = [
+const mockUsers: User[] = [
   {
     id: '1',
     name: 'Dr. María García',
@@ -164,7 +164,7 @@ let mockUsers: User[] = [
   },
 ];
 
-let mockEvents: Event[] = [
+const mockEvents: Event[] = [
   {
     id: '1',
     name: 'Congreso Internacional de Biotecnología 2024',
@@ -193,7 +193,7 @@ let mockEvents: Event[] = [
   },
 ];
 
-let mockAbstracts: Abstract[] = [
+const mockAbstracts: Abstract[] = [
   {
     id: '1',
     userId: '1',
@@ -236,7 +236,7 @@ let mockAbstracts: Abstract[] = [
   },
 ];
 
-let mockReviews: Review[] = [
+const mockReviews: Review[] = [
   {
     id: '1',
     abstractId: '2',

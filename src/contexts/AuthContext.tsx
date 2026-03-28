@@ -62,6 +62,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   }, []);
 
+  useEffect(() => {
+    const handleAuthRefresh = () => {
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        try {
+          const { userId } = JSON.parse(atob(token));
+          const found = db.users.getById(userId);
+          if (found) setUser(found);
+        } catch { /* ignore */ }
+      }
+    };
+    window.addEventListener('sge-auth-refresh', handleAuthRefresh);
+    return () => window.removeEventListener('sge-auth-refresh', handleAuthRefresh);
+  }, []);
+
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {

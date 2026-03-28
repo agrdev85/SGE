@@ -7,8 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { db, User, UserRole, Event } from '@/lib/database';
+import { normalizeText, isDuplicate } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { Search, Users as UsersIcon, UserCheck, ClipboardCheck, Shield, Plus, Edit, Trash2, FileDown, Award, IdCard, Building2, Hotel, Eye, Handshake, BookOpen } from 'lucide-react';
+import { Search, Users as UsersIcon, UserCheck, ClipboardCheck, Shield, Plus, Pencil, Trash2, FileDown, Award, IdCard, Building2, Hotel, Eye, Handshake, BookOpen } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -23,6 +24,7 @@ import {
 import { CanvasElement, defaultCertificateElements, defaultCredentialElements, CredentialDesignConfig } from '@/components/designCanvas/types';
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 
 // Complete role config for all 10 roles
 const roleConfig: Record<UserRole, { label: string; color: string; icon: React.ElementType }> = {
@@ -73,6 +75,11 @@ export default function Users() {
   const [activeTab, setActiveTab] = useState('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    open: boolean;
+    userId: string;
+    userName: string;
+  }>({ open: false, userId: '', userName: '' });
   const [formData, setFormData] = useState({
     name: '', email: '', role: 'USER' as UserRole, country: '', affiliation: '', avatar: '', isActive: true,
     idDocument: '', phone: '', affiliationType: '', economicSector: '', participationType: '', scientificLevel: '', educationalLevel: '', gender: 'M', password: '', confirmPassword: '',
@@ -143,6 +150,14 @@ export default function Users() {
       if (!formData.password) { toast.error('Contraseña requerida para nuevo usuario'); return; }
       if (formData.password !== formData.confirmPassword) { toast.error('Las contraseñas no coinciden'); return; }
     }
+
+    const emailNormalizado = normalizeText(formData.email);
+    const emailDuplicado = users.find(u => normalizeText(u.email) === emailNormalizado && (!editingUser || u.id !== editingUser.id));
+    if (emailDuplicado) {
+      toast.error(`Ya existe un usuario con el email "${emailDuplicado.email}"`);
+      return;
+    }
+
     try {
       const saveData: any = { ...formData };
       delete saveData.password;
@@ -163,12 +178,19 @@ export default function Users() {
     } catch { toast.error('Error al guardar'); }
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('¿Eliminar este usuario?')) {
-      db.users.delete(id);
-      toast.success('Usuario eliminado');
-      loadUsers();
-    }
+  const handleDelete = (user: User) => {
+    setDeleteConfirm({
+      open: true,
+      userId: user.id,
+      userName: user.name,
+    });
+  };
+
+  const confirmDeleteUser = () => {
+    db.users.delete(deleteConfirm.userId);
+    toast.success('Usuario eliminado');
+    loadUsers();
+    setDeleteConfirm(prev => ({ ...prev, open: false }));
   };
 
   const assignableRoles = currentUser ? getAssignableRoles(currentUser.role) : [];
@@ -304,9 +326,9 @@ export default function Users() {
                         <td className="py-4 px-4"><Badge variant={user.isActive ? 'default' : 'secondary'}>{user.isActive ? 'Activo' : 'Inactivo'}</Badge></td>
                         <td className="py-4 px-4">
                           <div className="flex gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => openEditDialog(user)} title="Editar"><Edit className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => openEditDialog(user)} title="Editar"><Pencil className="h-4 w-4" /></Button>
                             <Button variant="ghost" size="icon" onClick={() => handleGenerateCertificate(user)} title="Certificado"><Award className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(user.id)} title="Eliminar"><Trash2 className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(user)} title="Eliminar"><Trash2 className="h-4 w-4" /></Button>
                           </div>
                         </td>
                       </tr>
@@ -425,6 +447,17 @@ export default function Users() {
           </DialogContent>
         </Dialog>
       </div>
+
+      <ConfirmationDialog
+        open={deleteConfirm.open}
+        onOpenChange={(open) => setDeleteConfirm(prev => ({ ...prev, open }))}
+        title="Eliminar Usuario"
+        description="¿Está seguro de que desea eliminar este usuario? Esta acción no se puede deshacer."
+        itemName={deleteConfirm.userName}
+        itemType="Usuario"
+        variant="danger"
+        onConfirm={confirmDeleteUser}
+      />
     </DashboardLayout>
   );
 }

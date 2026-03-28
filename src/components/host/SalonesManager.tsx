@@ -12,8 +12,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MultiImageUpload } from '@/components/ui/multi-image-upload';
 import { ImageGallery } from '@/components/ui/image-gallery';
 import { db, Salon, NomHotel } from '@/lib/database';
-import { Plus, Edit, Trash2, Image as ImageIcon, Search, Eye, AlertCircle } from 'lucide-react';
+import { normalizeText, isDuplicate } from '@/lib/utils';
+import { Plus, Pencil, Trash2, Image as ImageIcon, Search, Eye, AlertCircle, Edit } from 'lucide-react';
 import { toast } from 'sonner';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 
 interface SalonFormData {
   hotelId: string;
@@ -43,6 +45,11 @@ export function SalonesManager() {
     estado: 'ACTIVO',
     imagenes: [],
   });
+
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    open: boolean;
+    salon: Salon | null;
+  }>({ open: false, salon: null });
 
   useEffect(() => {
     loadData();
@@ -107,6 +114,13 @@ export function SalonesManager() {
     if (!form.nombre) { toast.error('El nombre es obligatorio'); return; }
     if (form.capacidadMaxima <= 0) { toast.error('La capacidad debe ser mayor a 0'); return; }
 
+    const salonesDelHotel = salones.filter(s => s.hotelId === form.hotelId);
+    const codigoDuplicado = salonesDelHotel.find(s => normalizeText(s.codigo) === normalizeText(form.codigo) && (!editing || s.id !== editing.id));
+    if (codigoDuplicado) {
+      toast.error(`Ya existe un salón con el código "${codigoDuplicado.codigo}" en este hotel`);
+      return;
+    }
+
     try {
       if (editing) {
         db.salones.update(editing.id, form);
@@ -128,11 +142,16 @@ export function SalonesManager() {
       toast.error(<div className="flex items-center gap-2"><AlertCircle className="w-4 h-4" /> {reason}</div>); 
       return; 
     }
-    if (confirm('¿Eliminar este salón?')) {
-      db.salones.delete(s.id);
+    setDeleteConfirm({ open: true, salon: s });
+  };
+
+  const confirmDeleteSalon = () => {
+    if (deleteConfirm.salon) {
+      db.salones.delete(deleteConfirm.salon.id);
       toast.success('Salón eliminado');
       loadData();
     }
+    setDeleteConfirm({ open: false, salon: null });
   };
 
   const toggleEstado = (s: Salon) => {
@@ -260,7 +279,7 @@ export function SalonesManager() {
                           <Eye className="h-4 w-4" />
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => openEdit(salon)}>
-                          <Edit className="h-4 w-4" />
+                          <Pencil className="h-4 w-4" />
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => handleDelete(salon)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
@@ -418,12 +437,23 @@ export function SalonesManager() {
               Cerrar
             </Button>
             <Button onClick={() => { setIsViewOpen(false); if (viewing) openEdit(viewing); }}>
-              <Edit className="h-4 w-4 mr-2" />
+              <Pencil className="h-4 w-4 mr-2" />
               Editar
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmationDialog
+        open={deleteConfirm.open}
+        onOpenChange={(open) => setDeleteConfirm(prev => ({ ...prev, open }))}
+        title="Eliminar Salón"
+        description="¿Está seguro de que desea eliminar este salón? Esta acción no se puede deshacer."
+        itemName={deleteConfirm.salon?.nombre}
+        itemType="Salón"
+        variant="danger"
+        onConfirm={confirmDeleteSalon}
+      />
     </div>
   );
 }

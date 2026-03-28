@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useWizard } from '@/contexts/WizardContext';
 import { db } from '@/lib/database';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Check, AlertCircle, Globe, Building2, MapPin, Users, Bus, Calendar, Layers, Save, Rocket } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Check, AlertCircle, Globe, Building2, MapPin, Users, Bus, Calendar, Layers, Save, Rocket, DollarSign, BedDouble, UserCheck, Ticket } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
@@ -33,6 +35,95 @@ export function FinalStep() {
   };
 
   const resumen = getResumen();
+
+  const preciosDetallados = useMemo(() => {
+    if (!evento?.id) return { habitaciones: [], participacion: [], transporte: [], actividades: [], totales: { habitaciones: 0, participacion: 0, transporte: 0, actividades: 0 } };
+
+    const habitacionesData: { hotel: string; tipo: string; precioCUP: number; precioMoneda: number; moneda: string; cupo: number }[] = [];
+    const participacionData: { nombre: string; precioCUP: number; precioMoneda: number; moneda: string; capacidad: number }[] = [];
+    const transporteData: { nombre: string; precio: number; moneda: string }[] = [];
+    const actividadesData: { nombre: string; precio: number; moneda: string; requiereTransporte: boolean; guia: boolean }[] = [];
+
+    let totalHabitacionesCUP = 0;
+    let totalHabitacionesUSD = 0;
+    let totalParticipacionCUP = 0;
+    let totalParticipacionUSD = 0;
+    let totalTransporte = 0;
+    let totalActividades = 0;
+
+    const eventoHoteles = db.eventoHoteles.getByEvento(evento.id);
+    eventoHoteles.forEach(eh => {
+      const hotel = db.nomHoteles.getById(eh.hotelId);
+      const habitaciones = db.eventoHotelHabitaciones.getByEventoHotel(eh.id);
+      habitaciones.forEach(h => {
+        const tipo = db.nomTiposHabitacion.getById(h.tipoHabitacionId);
+        if (tipo) {
+          habitacionesData.push({
+            hotel: hotel?.nombre || 'Hotel',
+            tipo: tipo.nombre,
+            precioCUP: h.precioCUP,
+            precioMoneda: h.precioMoneda,
+            moneda: h.moneda,
+            cupo: h.cupo,
+          });
+          totalHabitacionesCUP += h.precioCUP * h.cupo;
+          totalHabitacionesUSD += h.precioMoneda * h.cupo;
+        }
+      });
+    });
+
+    const tiposParticipacion = db.eventoTiposParticipacion.getByEvento(evento.id);
+    tiposParticipacion.forEach(tp => {
+      const tipo = db.nomTiposParticipacion.getById(tp.tipoParticipacionId);
+      if (tipo) {
+        participacionData.push({
+          nombre: tipo.nombre,
+          precioCUP: tp.precioCUP,
+          precioMoneda: tp.precioMoneda,
+          moneda: tp.moneda,
+          capacidad: tp.capacidad,
+        });
+        totalParticipacionCUP += tp.precioCUP * tp.capacidad;
+        totalParticipacionUSD += tp.precioMoneda * tp.capacidad;
+      }
+    });
+
+    const rutas = db.rutasTransporte.getByEvento(evento.id);
+    rutas.forEach(r => {
+      transporteData.push({
+        nombre: r.nombre || r.origen + ' - ' + r.destino,
+        precio: r.precio?.moneda || 0,
+        moneda: r.precio?.monedaSeleccionada || 'USD',
+      });
+      totalTransporte += r.precio?.moneda || 0;
+    });
+
+    const actividades = db.actividadesSociales.getByEvento(evento.id);
+    actividades.forEach(a => {
+      const precioTotal = a.esGratuita ? 0 : (a.costo?.moneda || 0);
+      actividadesData.push({
+        nombre: a.nombre,
+        precio: precioTotal,
+        moneda: a.costo?.monedaSeleccionada || 'USD',
+        requiereTransporte: a.requiereTransporte,
+        guia: a.guiaIncluido,
+      });
+      totalActividades += precioTotal;
+    });
+
+    return {
+      habitaciones: habitacionesData,
+      participacion: participacionData,
+      transporte: transporteData,
+      actividades: actividadesData,
+      totales: {
+        habitaciones: totalHabitacionesUSD,
+        participacion: totalParticipacionUSD,
+        transporte: totalTransporte,
+        actividades: totalActividades,
+      },
+    };
+  }, [evento?.id]);
 
   const handleGuardar = async () => {
     setIsSaving(true);
@@ -158,6 +249,257 @@ export function FinalStep() {
         </CardContent>
       </Card>
 
+      {/* Resumen de Precios */}
+      {preciosDetallados.participacion.length > 0 || preciosDetallados.habitaciones.length > 0 || preciosDetallados.transporte.length > 0 || preciosDetallados.actividades.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <DollarSign className="w-5 h-5" />
+              <CardTitle>Resumen de Precios</CardTitle>
+            </div>
+            <CardDescription>
+              Detalle de precios configurados para este evento
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="participacion" className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                {preciosDetallados.participacion.length > 0 && (
+                  <TabsTrigger value="participacion" className="gap-1">
+                    <UserCheck className="w-4 h-4" />
+                    Participación
+                  </TabsTrigger>
+                )}
+                {preciosDetallados.habitaciones.length > 0 && (
+                  <TabsTrigger value="habitaciones" className="gap-1">
+                    <BedDouble className="w-4 h-4" />
+                    Habitaciones
+                  </TabsTrigger>
+                )}
+                {preciosDetallados.transporte.length > 0 && (
+                  <TabsTrigger value="transporte" className="gap-1">
+                    <Bus className="w-4 h-4" />
+                    Transporte
+                  </TabsTrigger>
+                )}
+                {preciosDetallados.actividades.length > 0 && (
+                  <TabsTrigger value="actividades" className="gap-1">
+                    <Ticket className="w-4 h-4" />
+                    Actividades
+                  </TabsTrigger>
+                )}
+              </TabsList>
+
+              {preciosDetallados.participacion.length > 0 && (
+                <TabsContent value="participacion" className="space-y-4">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Tipo de Participación</TableHead>
+                        <TableHead className="text-right">Precio CUP</TableHead>
+                        <TableHead className="text-right">Precio Moneda</TableHead>
+                        <TableHead className="text-right">Moneda</TableHead>
+                        <TableHead className="text-right">Capacidad</TableHead>
+                        <TableHead className="text-right">Subtotal</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {preciosDetallados.participacion.map((p, i) => (
+                        <TableRow key={i}>
+                          <TableCell className="font-medium">{p.nombre}</TableCell>
+                          <TableCell className="text-right">{p.precioCUP > 0 ? `${p.precioCUP} CUP` : '-'}</TableCell>
+                          <TableCell className="text-right">{p.precioMoneda > 0 ? `${p.precioMoneda}` : '-'}</TableCell>
+                          <TableCell className="text-right">{p.moneda}</TableCell>
+                          <TableCell className="text-right">{p.capacidad}</TableCell>
+                          <TableCell className="text-right font-medium">
+                            {p.moneda === 'USD' ? `${p.precioMoneda * p.capacidad} USD` : 
+                             p.moneda === 'EUR' ? `${p.precioMoneda * p.capacidad} EUR` :
+                             `${p.precioCUP * p.capacidad} CUP`}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <div className="flex justify-end p-3 bg-muted rounded-lg">
+                    <div className="text-right">
+                      <p className="text-sm text-muted-foreground">Total Participación</p>
+                      <p className="text-xl font-bold">{preciosDetallados.totales.participacion} USD (estimado)</p>
+                    </div>
+                  </div>
+                </TabsContent>
+              )}
+
+              {preciosDetallados.habitaciones.length > 0 && (
+                <TabsContent value="habitaciones" className="space-y-4">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Hotel</TableHead>
+                        <TableHead>Tipo Habitación</TableHead>
+                        <TableHead className="text-right">Precio CUP</TableHead>
+                        <TableHead className="text-right">Precio Moneda</TableHead>
+                        <TableHead className="text-right">Moneda</TableHead>
+                        <TableHead className="text-right">Cupo</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {preciosDetallados.habitaciones.map((h, i) => (
+                        <TableRow key={i}>
+                          <TableCell className="font-medium">{h.hotel}</TableCell>
+                          <TableCell>{h.tipo}</TableCell>
+                          <TableCell className="text-right">{h.precioCUP > 0 ? `${h.precioCUP} CUP` : '-'}</TableCell>
+                          <TableCell className="text-right">{h.precioMoneda > 0 ? `${h.precioMoneda}` : '-'}</TableCell>
+                          <TableCell className="text-right">{h.moneda}</TableCell>
+                          <TableCell className="text-right">{h.cupo}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TabsContent>
+              )}
+
+              {preciosDetallados.transporte.length > 0 && (
+                <TabsContent value="transporte" className="space-y-4">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Ruta</TableHead>
+                        <TableHead className="text-right">Precio</TableHead>
+                        <TableHead className="text-right">Moneda</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {preciosDetallados.transporte.map((t, i) => (
+                        <TableRow key={i}>
+                          <TableCell className="font-medium">{t.nombre}</TableCell>
+                          <TableCell className="text-right">{t.precio}</TableCell>
+                          <TableCell className="text-right">{t.moneda}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <div className="flex justify-end p-3 bg-muted rounded-lg">
+                    <div className="text-right">
+                      <p className="text-sm text-muted-foreground">Total Transporte</p>
+                      <p className="text-xl font-bold">{preciosDetallados.totales.transporte} USD</p>
+                    </div>
+                  </div>
+                </TabsContent>
+              )}
+
+              {preciosDetallados.actividades.length > 0 && (
+                <TabsContent value="actividades" className="space-y-4">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Actividad</TableHead>
+                        <TableHead className="text-center">Transporte</TableHead>
+                        <TableHead className="text-center">Guía</TableHead>
+                        <TableHead className="text-right">Precio</TableHead>
+                        <TableHead className="text-right">Moneda</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {preciosDetallados.actividades.map((a, i) => (
+                        <TableRow key={i}>
+                          <TableCell className="font-medium">{a.nombre}</TableCell>
+                          <TableCell className="text-center">
+                            {a.requiereTransporte ? <Badge variant="outline">Sí</Badge> : '-'}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {a.guia ? <Badge variant="outline">Incluido</Badge> : '-'}
+                          </TableCell>
+                          <TableCell className="text-right">{a.precio > 0 ? `${a.precio}` : 'Gratis'}</TableCell>
+                          <TableCell className="text-right">{a.precio > 0 ? a.moneda : '-'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <div className="flex justify-end p-3 bg-muted rounded-lg">
+                    <div className="text-right">
+                      <p className="text-sm text-muted-foreground">Total Actividades</p>
+                      <p className="text-xl font-bold">{preciosDetallados.totales.actividades} USD</p>
+                    </div>
+                  </div>
+                </TabsContent>
+              )}
+            </Tabs>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {/* Gran Total */}
+      {(preciosDetallados.participacion.length > 0 || preciosDetallados.habitaciones.length > 0 || preciosDetallados.transporte.length > 0 || preciosDetallados.actividades.length > 0) && (
+        <Card className="border-2 border-primary/20 bg-primary/5">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-primary" />
+              <CardTitle>Gran Total Estimado</CardTitle>
+            </div>
+            <CardDescription>
+              Resumen general de precios del evento
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              {preciosDetallados.participacion.length > 0 && (
+                <div className="p-4 bg-green-500/10 rounded-lg border border-green-500/20">
+                  <p className="text-sm text-muted-foreground flex items-center gap-1">
+                    <UserCheck className="w-4 h-4" /> Participación
+                  </p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {preciosDetallados.totales.participacion.toLocaleString()} USD
+                  </p>
+                </div>
+              )}
+              {preciosDetallados.habitaciones.length > 0 && (
+                <div className="p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                  <p className="text-sm text-muted-foreground flex items-center gap-1">
+                    <BedDouble className="w-4 h-4" /> Habitaciones
+                  </p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {preciosDetallados.totales.habitaciones.toLocaleString()} USD
+                  </p>
+                </div>
+              )}
+              {preciosDetallados.transporte.length > 0 && (
+                <div className="p-4 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
+                  <p className="text-sm text-muted-foreground flex items-center gap-1">
+                    <Bus className="w-4 h-4" /> Transporte
+                  </p>
+                  <p className="text-2xl font-bold text-yellow-600">
+                    {preciosDetallados.totales.transporte.toLocaleString()} USD
+                  </p>
+                </div>
+              )}
+              {preciosDetallados.actividades.length > 0 && (
+                <div className="p-4 bg-pink-500/10 rounded-lg border border-pink-500/20">
+                  <p className="text-sm text-muted-foreground flex items-center gap-1">
+                    <Ticket className="w-4 h-4" /> Actividades
+                  </p>
+                  <p className="text-2xl font-bold text-pink-600">
+                    {preciosDetallados.totales.actividades.toLocaleString()} USD
+                  </p>
+                </div>
+              )}
+              <div className="p-4 bg-primary/10 rounded-lg border-2 border-primary/30">
+                <p className="text-sm text-primary flex items-center gap-1">
+                  <DollarSign className="w-4 h-4" /> TOTAL GENERAL
+                </p>
+                <p className="text-3xl font-bold text-primary">
+                  {(
+                    preciosDetallados.totales.participacion +
+                    preciosDetallados.totales.habitaciones +
+                    preciosDetallados.totales.transporte +
+                    preciosDetallados.totales.actividades
+                  ).toLocaleString()} USD
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Estado de Pasos */}
       <Card>
         <CardHeader>
@@ -213,23 +555,6 @@ export function FinalStep() {
           </CardContent>
         </Card>
       )}
-
-      {/* Acciones */}
-      <div className="flex items-center justify-between">
-        <Button variant="outline" onClick={handleGuardar} disabled={isSaving}>
-          <Save className="w-4 h-4 mr-2" />
-          {isSaving ? 'Guardando...' : 'Guardar Progreso'}
-        </Button>
-        
-        <Button
-          onClick={handlePublicar}
-          disabled={isPublishing || pasosFaltantes.length > 0}
-          size="lg"
-        >
-          <Rocket className="w-4 h-4 mr-2" />
-          {isPublishing ? 'Publicando...' : 'Publicar Evento'}
-        </Button>
-      </div>
     </div>
   );
 }
