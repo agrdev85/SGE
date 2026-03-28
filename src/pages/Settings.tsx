@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { db } from '@/lib/database';
 import { useWallpaperConfig, AURORA_PRESETS, DEFAULT_CONFIG } from '@/hooks/useWallpaperConfig';
 import { cn } from '@/lib/utils';
+import { DataManagement } from '@/components/settings/DataManagement';
 
 const countries = [
   'Cuba', 'México', 'Argentina', 'España', 'Colombia', 'Chile', 'Perú', 'Venezuela', 'Brasil', 'Estados Unidos'
@@ -671,6 +672,11 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
+        )}
+
+        {/* Data Management Section - Solo SuperAdmin */}
+        {isSuperAdmin && (
+          <DataManagement />
         )}
 
         {/* Security Section */}
