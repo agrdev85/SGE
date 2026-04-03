@@ -3,6 +3,7 @@ import { Sidebar } from './Sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
+import { ThemeToggle } from './ThemeToggle';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -26,8 +27,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
-      <main className="ml-64 min-h-screen p-8 transition-all duration-300">
-        <div className="animate-fade-in">
+      <main className="ml-64 min-h-screen transition-all duration-300">
+        <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border">
+          <div className="flex items-center justify-end px-6 py-3">
+            <ThemeToggle />
+          </div>
+        </div>
+        <div className="p-8 animate-fade-in">
           {children}
         </div>
       </main>

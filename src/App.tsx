@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { EventProvider } from "@/contexts/EventContext";
 import { WallpaperProvider } from "@/hooks/useWallpaperConfig";
 import { DialogProvider } from "@/components/ui/ConfirmationDialog";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -49,14 +50,15 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <EventProvider>
-        <WallpaperProvider>
-          <DialogProvider>
-            <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
+    <ThemeProvider>
+      <AuthProvider>
+        <EventProvider>
+          <WallpaperProvider>
+            <DialogProvider>
+              <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
               <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
@@ -103,6 +105,7 @@ const App = () => (
         </WallpaperProvider>
       </EventProvider>
     </AuthProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 

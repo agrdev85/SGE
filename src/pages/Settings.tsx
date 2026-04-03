@@ -16,6 +16,7 @@ import { db } from '@/lib/database';
 import { useWallpaperConfig, AURORA_PRESETS, DEFAULT_CONFIG } from '@/hooks/useWallpaperConfig';
 import { cn } from '@/lib/utils';
 import { DataManagement } from '@/components/settings/DataManagement';
+import { ThemeSettings } from '@/components/settings/ThemeSettings';
 
 const countries = [
   'Cuba', 'México', 'Argentina', 'España', 'Colombia', 'Chile', 'Perú', 'Venezuela', 'Brasil', 'Estados Unidos'
@@ -208,6 +209,9 @@ export default function Settings() {
             Gestiona tu perfil y preferencias
           </p>
         </div>
+
+        {/* Theme Section */}
+        <ThemeSettings />
 
         {/* Profile Section */}
         <Card>
