@@ -12,6 +12,7 @@ import EventContentEditor from '@/components/EventContentEditor';
 import { cn } from '@/lib/utils';
 import { Save, Image as ImageIcon, Palette, FileText, Layout } from 'lucide-react';
 import { toast } from 'sonner';
+import { useConfirmation } from '@/hooks/useConfirmation';
 
 const COLORES_PRESETIDOS = [
   { primary: '#3b82f6', secondary: '#60a5fa', name: 'Azul' },
@@ -24,6 +25,7 @@ const COLORES_PRESETIDOS = [
 
 export function BasicInfoStep() {
   const { evento, guardarPaso, state } = useWizard();
+  const { success } = useConfirmation();
   
   const [form, setForm] = useState({
     name: '',
@@ -107,6 +109,7 @@ export function BasicInfoStep() {
         tasasCambio: form.tasasCambio,
       } as any);
       toast.success('Información básica guardada');
+      success({ title: '¡Guardado!', description: 'Información básica guardada correctamente' });
     } catch (error) {
       toast.error('Error al guardar');
     }

@@ -121,9 +121,11 @@ export function NomencladoresStep() {
       if (editing) {
         db.nomencladoresEvento.update(editing.id, data);
         toast.success('Nomenclador actualizado');
+        success({ title: '¡Guardado!', description: 'Nomenclador actualizado correctamente' });
       } else {
         db.nomencladoresEvento.create(data);
         toast.success('Nomenclador creado');
+        success({ title: '¡Guardado!', description: 'Nomenclador creado correctamente' });
       }
       setIsDialogOpen(false);
       loadData();
@@ -152,6 +154,7 @@ export function NomencladoresStep() {
     try {
       await guardarPaso(6, {} as any);
       toast.success('Nomencladores guardados');
+      success({ title: '¡Guardado!', description: 'Nomencladores guardados correctamente' });
     } catch (error) {
       toast.error('Error al guardar');
     }

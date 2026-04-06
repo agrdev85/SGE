@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Pencil, Trash2, Send, Eye, Mail, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
+import { ConfirmationDialog, useConfirmation } from '@/components/ui/ConfirmationDialog';
 
 interface EmailTemplateManagerProps {
   event: Event;
@@ -42,6 +42,7 @@ const availableVariables = [
 ];
 
 export function EmailTemplateManager({ event }: EmailTemplateManagerProps) {
+  const { success } = useConfirmation();
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSendDialogOpen, setIsSendDialogOpen] = useState(false);
@@ -132,12 +133,14 @@ export function EmailTemplateManager({ event }: EmailTemplateManagerProps) {
           eventId: event.id,
         });
         toast.success('Plantilla actualizada');
+        success({ title: '¡Guardado!', description: 'Plantilla actualizada correctamente' });
       } else {
         db.emailTemplates.create({
           ...formData,
           eventId: event.id,
         });
         toast.success('Plantilla creada');
+        success({ title: '¡Guardado!', description: 'Plantilla creada correctamente' });
       }
       setIsDialogOpen(false);
       loadTemplates();
@@ -154,6 +157,7 @@ export function EmailTemplateManager({ event }: EmailTemplateManagerProps) {
       onConfirm: () => {
         db.emailTemplates.delete(template.id);
         toast.success('Plantilla eliminada');
+        success({ title: '¡Eliminado!', description: 'Plantilla eliminada correctamente' });
         loadTemplates();
       },
     });
@@ -186,6 +190,7 @@ export function EmailTemplateManager({ event }: EmailTemplateManagerProps) {
         }
       );
       toast.success(`${selectedRecipients.length} email(s) enviado(s) correctamente`);
+      success({ title: '¡Enviado!', description: `${selectedRecipients.length} email(s) enviado(s) correctamente` });
       setIsSendDialogOpen(false);
     } catch {
       toast.error('Error al enviar emails');

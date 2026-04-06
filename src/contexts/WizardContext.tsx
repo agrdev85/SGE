@@ -132,22 +132,23 @@ export function WizardProvider({ children }: { children: React.ReactNode }) {
       
       setEvento(eventoActualizado);
       
+      const pasosActualizados = state.pasosCompletados.includes(paso)
+        ? state.pasosCompletados
+        : [...state.pasosCompletados, paso];
+      
       setState(prev => ({
         ...prev,
         datosTemporal: { ...prev.datosTemporal, ...datos },
         ultimaModificacion: new Date().toISOString(),
         modificadoPor: user?.id || null,
         isSaving: false,
+        pasosCompletados: pasosActualizados,
       }));
-
-      if (!state.pasosCompletados.includes(paso)) {
-        marcarPasoCompletado(paso);
-      }
 
       db.wizardProgress.create({
         eventoId: state.eventoId,
         pasoActual: paso,
-        pasosCompletados: [...new Set([...state.pasosCompletados, paso])],
+        pasosCompletados: pasosActualizados,
         modificadoPor: user?.id || 'system',
       });
     } catch (error) {
@@ -158,7 +159,7 @@ export function WizardProvider({ children }: { children: React.ReactNode }) {
         errores: { ...prev.errores, [paso]: 'Error al guardar' },
       }));
     }
-  }, [state.eventoId, state.pasosCompletados, user?.id, marcarPasoCompletado]);
+  }, [state.eventoId, state.pasosCompletados, user?.id]);
 
   const siguientePaso = useCallback(() => {
     const sigPaso = state.pasoActual + 1;

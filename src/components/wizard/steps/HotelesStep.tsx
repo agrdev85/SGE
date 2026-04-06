@@ -348,6 +348,7 @@ export function HotelesStep() {
           activo: data.activo ?? true,
         });
         toast.success('Hotel actualizado');
+        success({ title: '¡Guardado!', description: 'Hotel actualizado correctamente' });
         success({ title: '¡Hotel actualizado!', description: `Se guardaron los cambios de "${data.nombre}"` });
       } else {
         db.nomHoteles.create({
@@ -361,6 +362,7 @@ export function HotelesStep() {
           activo: true,
         });
         toast.success('Hotel creado');
+        success({ title: '¡Guardado!', description: 'Hotel creado correctamente' });
         success({ title: '¡Hotel creado!', description: `"${data.nombre.trim()}" se agregó correctamente` });
       }
       setIsHotelDialogOpen(false);
@@ -410,6 +412,7 @@ export function HotelesStep() {
           estado: data.estado || 'ACTIVO',
         } as any);
         toast.success('Salón actualizado');
+        success({ title: '¡Guardado!', description: 'Salón actualizado correctamente' });
         success({ title: '¡Salón actualizado!', description: `Se guardaron los cambios de "${data.nombre.trim()}"`});
       } else {
         db.salones.create({
@@ -423,6 +426,7 @@ export function HotelesStep() {
           imagenes: [],
         } as any);
         toast.success('Salón creado');
+        success({ title: '¡Guardado!', description: 'Salón creado correctamente' });
         success({ title: '¡Salón creado!', description: `"${data.nombre.trim()}" se agregó correctamente`});
       }
       setIsSalonDialogOpen(false);
@@ -459,6 +463,7 @@ export function HotelesStep() {
           capacidadMaxPersonas: tipoHabitacionForm.capacidadMaxPersonas,
         });
         toast.success('Tipo de habitación actualizado');
+        success({ title: '¡Guardado!', description: 'Tipo de habitación actualizado correctamente' });
         success({ title: '¡Tipo de habitación actualizado!', description: `Se guardaron los cambios de "${tipoHabitacionForm.nombre.trim()}"`});
       } else {
         db.nomTiposHabitacion.create({
@@ -467,7 +472,9 @@ export function HotelesStep() {
           capacidadMaxPersonas: tipoHabitacionForm.capacidadMaxPersonas,
           activo: true,
         });
-        toast.success('Tipo de habitación creado');
+      toast.success('Tipo de habitación creado');
+      success({ title: '¡Guardado!', description: 'Tipo de habitación creado correctamente' });
+        success({ title: '¡Guardado!', description: 'Tipo de habitación creado correctamente' });
         success({ title: '¡Tipo de habitación creado!', description: `"${tipoHabitacionForm.nombre.trim()}" se agregó correctamente`});
       }
       setIsTipoHabitacionDialogOpen(false);
@@ -509,7 +516,7 @@ export function HotelesStep() {
           const tipo = tiposHabitacion.find(t => t.id === id);
           if (tipo) {
             toggleHabitacion(selectedHotelId, id);
-            toast.success(`"${tipo.nombre}" seleccionado`);
+            success({ title: '¡Seleccionado!', description: `"${tipo.nombre}" seleccionado` });
           }
           setSuggestionDialog(prev => ({ ...prev, isOpen: false }));
         },
@@ -690,6 +697,7 @@ export function HotelesStep() {
 
       await guardarPaso(2, {} as any);
       toast.success('Hoteles y alojamientos guardados');
+      success({ title: '¡Guardado!', description: 'Hoteles y alojamientos guardados correctamente' });
     } catch (error) {
       toast.error('Error al guardar');
       console.error(error);

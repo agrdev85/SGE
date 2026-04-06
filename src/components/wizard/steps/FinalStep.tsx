@@ -6,12 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Check, AlertCircle, Globe, Building2, MapPin, Users, Bus, Calendar, Layers, Save, Rocket, DollarSign, BedDouble, UserCheck, Ticket } from 'lucide-react';
+import { Check, AlertCircle, Globe, Building2, MapPin, Users, Bus, Calendar, Layers, Save, Rocket, DollarSign, BedDouble, UserCheck, Ticket, ArrowLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { useConfirmation } from '@/hooks/useConfirmation';
 
 export function FinalStep() {
-  const { evento, guardarPaso, state, getPasosInfo } = useWizard();
+  const { evento, guardarPaso, state, getPasosInfo, irAPaso } = useWizard();
+  const { success } = useConfirmation();
   const navigate = useNavigate();
   const [isPublishing, setIsPublishing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -130,6 +132,7 @@ export function FinalStep() {
     try {
       await guardarPaso(7, {} as any);
       toast.success('Configuración guardada');
+      success({ title: '¡Guardado!', description: 'Configuración guardada correctamente' });
     } catch (error) {
       toast.error('Error al guardar');
     }
@@ -149,6 +152,7 @@ export function FinalStep() {
       }
       await guardarPaso(7, {} as any);
       toast.success('¡Evento publicado exitosamente!');
+      success({ title: '¡Publicado!', description: 'Evento publicado correctamente' });
       navigate('/events');
     } catch (error) {
       toast.error('Error al publicar');
@@ -503,34 +507,51 @@ export function FinalStep() {
       {/* Estado de Pasos */}
       <Card>
         <CardHeader>
-          <CardTitle>Estado de Configuración</CardTitle>
+          <CardTitle className="flex items-center justify-between">
+            <span>Estado de Configuración</span>
+            <span className="text-sm font-normal text-muted-foreground">
+              {state.pasosCompletados.length} de {pasosRequeridos.length} pasos completados
+            </span>
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {pasosInfo.filter(p => p.numero <= 7).map(paso => (
-              <div
+          <div className="flex items-center gap-1 overflow-x-auto pb-2">
+            {pasosInfo.filter(p => p.numero <= 7).map((paso, index) => (
+              <button
                 key={paso.numero}
-                className={`flex items-center gap-3 p-3 rounded-lg ${
-                  paso.estado === 'completado' ? 'bg-green-500/10' : 'bg-muted'
+                onClick={() => irAPaso(paso.numero)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all whitespace-nowrap ${
+                  paso.estado === 'completado' 
+                    ? 'bg-green-500/10 hover:bg-green-500/20 text-green-700 dark:text-green-400' 
+                    : paso.numero === state.pasoActual
+                    ? 'bg-primary/10 text-primary'
+                    : 'bg-muted hover:bg-muted/80 text-muted-foreground'
                 }`}
               >
-                {paso.estado === 'completado' ? (
-                  <Check className="w-5 h-5 text-green-500" />
-                ) : (
-                  <AlertCircle className="w-5 h-5 text-muted-foreground" />
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                  paso.estado === 'completado' 
+                    ? 'bg-green-500 text-white' 
+                    : paso.numero === state.pasoActual
+                    ? 'bg-primary text-white'
+                    : 'bg-muted-foreground/20'
+                }`}>
+                  {paso.estado === 'completado' ? (
+                    <Check className="w-3.5 h-3.5" />
+                  ) : (
+                    paso.numero
+                  )}
+                </div>
+                <span className="text-sm font-medium">{paso.titulo}</span>
+                {index < pasosInfo.filter(p => p.numero <= 7).length - 1 && (
+                  <ChevronRight className="w-4 h-4 text-muted-foreground/50" />
                 )}
-                <span className={paso.estado === 'completado' ? '' : 'text-muted-foreground'}>
-                  {paso.numero}. {paso.titulo}
-                </span>
-                <Badge
-                  variant={paso.estado === 'completado' ? 'default' : 'secondary'}
-                  className="ml-auto"
-                >
-                  {paso.estado === 'completado' ? 'Completado' : 'Pendiente'}
-                </Badge>
-              </div>
+              </button>
             ))}
           </div>
+          
+          <p className="text-xs text-muted-foreground mt-3">
+            Haz clic en cualquier paso para navegar directamente a él
+          </p>
         </CardContent>
       </Card>
 
@@ -538,7 +559,7 @@ export function FinalStep() {
       {pasosFaltantes.length > 0 && (
         <Card className="border-yellow-500">
           <CardContent className="pt-6">
-            <div className="flex items-start gap-3 text-yellow-700">
+            <div className="flex items-start gap-3 text-yellow-700 dark:text-yellow-500">
               <AlertCircle className="w-5 h-5 mt-0.5" />
               <div>
                 <p className="font-medium">Pasos incompletos</p>
@@ -555,6 +576,93 @@ export function FinalStep() {
           </CardContent>
         </Card>
       )}
+
+      {/* Botones de Acción */}
+      <Card className="border-primary/20 bg-primary/5">
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 space-y-2">
+              <h4 className="font-medium">Acciones</h4>
+              <p className="text-sm text-muted-foreground">
+                {pasosFaltantes.length === 0 
+                  ? '¡Todos los pasos están completados! Ya puede publicar el evento.'
+                  : `Faltan ${pasosFaltantes.length} paso(s) por completar.`}
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+              <Button
+                variant="outline"
+                onClick={() => irAPaso(state.pasoActual > 1 ? state.pasoActual - 1 : 1)}
+                className="gap-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Paso Anterior
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleGuardar}
+                disabled={isSaving}
+                className="gap-2"
+              >
+                {isSaving ? (
+                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                Guardar
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  handleGuardar();
+                  navigate('/events');
+                }}
+                disabled={isSaving}
+                className="gap-2"
+              >
+                <Save className="w-4 h-4" />
+                Guardar y Salir
+              </Button>
+              <Button
+                onClick={handlePublicar}
+                disabled={isPublishing || pasosFaltantes.length > 0}
+                className="gap-2 bg-green-600 hover:bg-green-700"
+              >
+                {isPublishing ? (
+                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Rocket className="w-4 h-4" />
+                )}
+                Publicar Evento
+              </Button>
+            </div>
+          </div>
+          
+          {/* Pasos faltantes como botones clicables */}
+          {pasosFaltantes.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-border/50">
+              <p className="text-sm font-medium mb-2">Ir a paso pendiente:</p>
+              <div className="flex flex-wrap gap-2">
+                {pasosFaltantes.map(p => {
+                  const info = pasosInfo.find(pi => pi.numero === p);
+                  return (
+                    <Button
+                      key={p}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => irAPaso(p)}
+                      className="gap-2 text-yellow-600 border-yellow-500/50 hover:bg-yellow-500/10"
+                    >
+                      <AlertCircle className="w-4 h-4" />
+                      {info?.titulo || `Paso ${p}`}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

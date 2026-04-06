@@ -293,6 +293,7 @@ const SuperAdminPanel: React.FC = () => {
       if (editingItem) db.nomReceptivos.update(editingItem.id, formData);
       else db.nomReceptivos.create({ ...formData, activo: formData.activo ?? true });
       toast.success(editingItem ? 'Actualizado' : 'Creado');
+      success({ title: '¡Guardado!', description: editingItem ? 'Actualizado correctamente' : 'Creado correctamente' });
       closeDialog(); loadAll();
     } catch (e: any) { toast.error(e.message); }
   };
@@ -390,6 +391,7 @@ const SuperAdminPanel: React.FC = () => {
       if (editingItem) db.nomTiposParticipacion.update(editingItem.id, formData);
       else db.nomTiposParticipacion.create({ ...formData, activo: formData.activo ?? true });
       toast.success(editingItem ? 'Actualizado' : 'Creado');
+      success({ title: '¡Guardado!', description: editingItem ? 'Actualizado correctamente' : 'Creado correctamente' });
       closeDialog(); loadAll();
     } catch (e: any) { toast.error(e.message); }
   };
@@ -431,6 +433,7 @@ const SuperAdminPanel: React.FC = () => {
       if (editingItem) db.nomTiposTransporte.update(editingItem.id, formData);
       else db.nomTiposTransporte.create({ ...formData, activo: formData.activo ?? true });
       toast.success(editingItem ? 'Actualizado' : 'Creado');
+      success({ title: '¡Guardado!', description: editingItem ? 'Actualizado correctamente' : 'Creado correctamente' });
       closeDialog(); loadAll();
     } catch (e: any) { toast.error(e.message); }
   };
@@ -472,6 +475,7 @@ const SuperAdminPanel: React.FC = () => {
       if (editingItem) db.nomHoteles.update(editingItem.id, formData);
       else db.nomHoteles.create({ ...formData, activo: formData.activo ?? true });
       toast.success(editingItem ? 'Actualizado' : 'Creado');
+      success({ title: '¡Guardado!', description: editingItem ? 'Actualizado correctamente' : 'Creado correctamente' });
       closeDialog(); loadAll();
     } catch (e: any) { toast.error(e.message); }
   };
@@ -496,6 +500,7 @@ const SuperAdminPanel: React.FC = () => {
       if (editingItem) db.salones.update(editingItem.id, formData);
       else db.salones.create({ ...formData, estado: formData.estado || 'ACTIVO', imagenes: [] });
       toast.success(editingItem ? 'Salón actualizado' : 'Salón creado');
+      success({ title: '¡Guardado!', description: editingItem ? 'Salón actualizado correctamente' : 'Salón creado correctamente' });
       closeDialog(); loadAll();
     } catch (e: any) { toast.error(e.message); }
   };
@@ -544,6 +549,7 @@ const SuperAdminPanel: React.FC = () => {
       if (editingItem) db.nomTiposHabitacion.update(editingItem.id, formData);
       else db.nomTiposHabitacion.create({ ...formData, activo: formData.activo ?? true });
       toast.success(editingItem ? 'Actualizado' : 'Creado');
+      success({ title: '¡Guardado!', description: editingItem ? 'Actualizado correctamente' : 'Creado correctamente' });
       closeDialog(); loadAll();
     } catch (e: any) { toast.error(e.message); }
   };
@@ -553,6 +559,7 @@ const SuperAdminPanel: React.FC = () => {
     db.auditLog.create({ userId: currentUser?.id || '', action: 'CHANGE_ROLE', entity: 'user', entityId: userId, details: `Rol cambiado a ${newRole}` });
     loadAll();
     toast.success('Rol actualizado');
+    success({ title: '¡Guardado!', description: 'Rol actualizado correctamente' });
   };
 
   const handleDeleteTipoParticipacion = (t: NomTipoParticipacion) => {
@@ -580,6 +587,7 @@ const SuperAdminPanel: React.FC = () => {
     db.users.update(userId, { isActive });
     loadAll();
     toast.success(`Usuario ${isActive ? 'activado' : 'desactivado'}`);
+    success({ title: '¡Guardado!', description: `Usuario ${isActive ? 'activado' : 'desactivado'} correctamente` });
   };
 
   const handleExportData = () => {

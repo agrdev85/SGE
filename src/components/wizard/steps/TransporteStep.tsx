@@ -26,7 +26,7 @@ interface RutaFormData {
 
 export function TransporteStep() {
   const { evento, guardarPaso, state } = useWizard();
-  const { confirm } = useConfirmation();
+  const { confirm, success } = useConfirmation();
   const [tiposVehiculo, setTiposVehiculo] = useState<NomTipoTransporte[]>([]);
   const [rutas, setRutas] = useState<RutaTransporte[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -98,9 +98,11 @@ export function TransporteStep() {
       if (editing) {
         db.rutasTransporte.update(editing.id, data);
         toast.success('Ruta actualizada');
+        success({ title: '¡Guardado!', description: 'Ruta actualizada correctamente' });
       } else {
         db.rutasTransporte.create(data);
         toast.success('Ruta creada');
+        success({ title: '¡Guardado!', description: 'Ruta creada correctamente' });
       }
       setIsDialogOpen(false);
       loadData();
@@ -129,6 +131,7 @@ export function TransporteStep() {
     try {
       await guardarPaso(4, {} as any);
       toast.success('Transporte guardado');
+      success({ title: '¡Guardado!', description: 'Configuración de transporte guardada' });
     } catch (error) {
       toast.error('Error al guardar');
     }

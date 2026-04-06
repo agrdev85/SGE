@@ -53,7 +53,7 @@ interface ActividadFormData {
 
 export function ProgramaSocialStep() {
   const { evento, guardarPaso, state } = useWizard();
-  const { confirm } = useConfirmation();
+  const { confirm, success } = useConfirmation();
   const [actividades, setActividades] = useState<ActividadSocial[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
@@ -173,9 +173,11 @@ export function ProgramaSocialStep() {
       if (editing) {
         db.actividadesSociales.update(editing.id, data);
         toast.success('Actividad actualizada');
+        success({ title: '¡Guardado!', description: 'Actividad actualizada correctamente' });
       } else {
         db.actividadesSociales.create(data);
         toast.success('Actividad creada');
+        success({ title: '¡Guardado!', description: 'Actividad creada correctamente' });
       }
       setIsDialogOpen(false);
       loadActividades();
@@ -222,6 +224,7 @@ export function ProgramaSocialStep() {
     try {
       await guardarPaso(5, {} as any);
       toast.success('Programa social guardado');
+      success({ title: '¡Guardado!', description: 'Programa social guardado correctamente' });
     } catch (error) {
       toast.error('Error al guardar');
     }

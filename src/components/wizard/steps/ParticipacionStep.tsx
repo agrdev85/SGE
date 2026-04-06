@@ -26,7 +26,7 @@ interface TipoParticipacionConfig {
 
 export function ParticipacionStep() {
   const { evento, guardarPaso, state } = useWizard();
-  const { confirm } = useConfirmation();
+  const { confirm, success } = useConfirmation();
   const [tiposGlobales, setTiposGlobales] = useState<NomTipoParticipacion[]>([]);
   const [tiposSeleccionados, setTiposSeleccionados] = useState<string[]>([]);
   const [tiposConfigurados, setTiposConfigurados] = useState<TipoParticipacionConfig[]>([]);
@@ -125,6 +125,7 @@ export function ParticipacionStep() {
       } as any);
       
       toast.success('Tipo de participación creado');
+      success({ title: '¡Guardado!', description: 'Tipo de participación creado correctamente' });
       setIsNewTipoDialogOpen(false);
       setEditingTipoGlobal(null);
       
@@ -162,6 +163,7 @@ export function ParticipacionStep() {
       } as any);
       
       toast.success('Tipo de participación actualizado');
+      success({ title: '¡Guardado!', description: 'Tipo de participación actualizado correctamente' });
       setIsNewTipoDialogOpen(false);
       setEditingTipoGlobal(null);
       setTipoParticipacionForm({ nombre: '', descripcion: '', requierePago: true, apareceEnListadoPublico: true, activo: true });
@@ -222,6 +224,7 @@ export function ParticipacionStep() {
       }
       await guardarPaso(3, {} as any);
       toast.success('Tipos de participación guardados');
+      success({ title: '¡Guardado!', description: 'Tipos de participación guardados correctamente' });
     } catch (error) {
       toast.error('Error al guardar');
     }
@@ -315,7 +318,17 @@ export function ParticipacionStep() {
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          onClick={() => { setEditingTipoGlobal(tipo); setIsNewTipoDialogOpen(true); }}
+                          onClick={() => { 
+                            setEditingTipoGlobal(tipo); 
+                            setTipoParticipacionForm({
+                              nombre: tipo.nombre,
+                              descripcion: tipo.descripcion || '',
+                              requierePago: tipo.requierePago ?? true,
+                              apareceEnListadoPublico: tipo.apareceEnListadoPublico ?? true,
+                              activo: tipo.activo ?? true,
+                            });
+                            setIsNewTipoDialogOpen(true); 
+                          }}
                         >
                           <Pencil className="w-4 h-4" />
                         </Button>
