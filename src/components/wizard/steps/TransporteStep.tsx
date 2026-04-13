@@ -25,7 +25,7 @@ interface RutaFormData {
 }
 
 export function TransporteStep() {
-  const { evento, guardarPaso, state } = useWizard();
+  const { evento, guardarYContinuar, state } = useWizard();
   const { confirm, success } = useConfirmation();
   const [tiposVehiculo, setTiposVehiculo] = useState<NomTipoTransporte[]>([]);
   const [rutas, setRutas] = useState<RutaTransporte[]>([]);
@@ -129,9 +129,8 @@ export function TransporteStep() {
   const handleGuardarPaso = async () => {
     setIsSaving(true);
     try {
-      await guardarPaso(4, {} as any);
-      toast.success('Transporte guardado');
-      success({ title: '¡Guardado!', description: 'Configuración de transporte guardada' });
+      await guardarYContinuar(4, {} as any);
+      success({ title: '¡Guardado!', description: 'Continuando al siguiente paso...' });
     } catch (error) {
       toast.error('Error al guardar');
     }
@@ -371,10 +370,10 @@ export function TransporteStep() {
         </DialogContent>
       </Dialog>
 
-      <div className="flex justify-end">
+      <div className="flex justify-start">
         <Button onClick={handleGuardarPaso} disabled={isSaving} size="lg">
           <Save className="w-4 h-4 mr-2" />
-          {isSaving ? 'Guardando...' : 'Guardar Transporte'}
+          {isSaving ? 'Guardando...' : 'Guardar y Continuar'}
         </Button>
       </div>
 

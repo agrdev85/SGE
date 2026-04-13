@@ -99,7 +99,16 @@ export default function Events() {
 
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => { 
+    loadAll(); 
+    
+    const handleDataChange = () => {
+      loadAll();
+    };
+    
+    window.addEventListener('sge-data-change', handleDataChange);
+    return () => window.removeEventListener('sge-data-change', handleDataChange);
+  }, [currentUser?.id]);
 
   const loadAll = () => {
     let allMacros = db.macroEvents.getAll();
@@ -107,13 +116,7 @@ export default function Events() {
 
     // Data isolation per permission matrix
     if (currentUser) {
-      if (currentUser.role === 'COORDINADOR_HOTEL') {
-        // Only see events assigned to their hotel
-        const eventoHoteles = db.eventoHoteles.getByHotel(currentUser.hotelId || '');
-        const macroIds = eventoHoteles.map(eh => eh.eventoId);
-        allMacros = allMacros.filter(me => macroIds.includes(me.id));
-        allEvents = allEvents.filter(e => macroIds.includes(e.macroEventId));
-      } else if (currentUser.role === 'ADMIN_RECEPTIVO' || currentUser.role === 'LECTOR_RECEPTIVO') {
+      if (currentUser.role === 'ADMIN_RECEPTIVO' || currentUser.role === 'LECTOR_RECEPTIVO') {
         allMacros = allMacros.filter(me => !(me as any).receptivoId || (me as any).receptivoId === currentUser.receptivoId);
         allEvents = allEvents.filter(e => {
           const macro = allMacros.find(m => m.id === e.macroEventId);
@@ -126,6 +129,7 @@ export default function Events() {
           return !!macro;
         });
       }
+      // COORDINADOR_HOTEL ve todos los eventos (como SuperAdmin)
     }
 
     setMacroEvents(allMacros);
@@ -135,7 +139,7 @@ export default function Events() {
   };
 
   const canEdit = !isLector && !isCoordinadorHotel;
-  const canCreate = isSuperAdmin || isAdmin || isAdminReceptivo || isAdminEmpresa;
+  const canCreate = isSuperAdmin || isAdmin || isAdminReceptivo || isAdminEmpresa || isCoordinadorHotel;
 
   // ===== MACRO EVENT HANDLERS =====
 

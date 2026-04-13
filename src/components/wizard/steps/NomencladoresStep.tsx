@@ -10,9 +10,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Pencil, Trash2, Save, Globe, Layers, Target, Activity, Edit } from 'lucide-react';
+import { Plus, Pencil, Trash2, Save, Globe, Layers, Target, Activity, Edit, LayersIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { useConfirmation } from '@/hooks/useConfirmation';
+import { ThematicsManagerModal } from '@/components/ui/ThematicsManagerModal';
 
 const TIPOS_NOMENCLADORES = [
   { tipo: 'TEMATICA' as TipoNomencladorEvento, label: 'Temáticas', icon: Globe },
@@ -43,13 +44,14 @@ interface NomencladorFormData {
 }
 
 export function NomencladoresStep() {
-  const { evento, guardarPaso, state } = useWizard();
+  const { evento, guardarYContinuar, state } = useWizard();
   const { confirm, success } = useConfirmation();
   const [nomencladores, setNomencladores] = useState<NomencladorEvento[]>([]);
   const [activeTab, setActiveTab] = useState<TipoNomencladorEvento>('TEMATICA');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editing, setEditing] = useState<NomencladorEvento | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isThematicsManagerOpen, setIsThematicsManagerOpen] = useState(false);
 
   const emptyForm: NomencladorFormData = {
     tipo: 'TEMATICA',
@@ -152,9 +154,8 @@ export function NomencladoresStep() {
   const handleGuardarPaso = async () => {
     setIsSaving(true);
     try {
-      await guardarPaso(6, {} as any);
-      toast.success('Nomencladores guardados');
-      success({ title: '¡Guardado!', description: 'Nomencladores guardados correctamente' });
+      await guardarYContinuar(6, {} as any);
+      success({ title: '¡Guardado!', description: 'Continuando al siguiente paso...' });
     } catch (error) {
       toast.error('Error al guardar');
     }
@@ -194,7 +195,17 @@ export function NomencladoresStep() {
               const items = getByTipo(t.tipo);
               return (
                 <TabsContent key={t.tipo} value={t.tipo} className="space-y-4 mt-4">
-                  <div className="flex justify-end">
+                  <div className="flex justify-end gap-2">
+                    {t.tipo === 'TEMATICA' && (
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setIsThematicsManagerOpen(true)}
+                        className="gap-2"
+                      >
+                        <LayersIcon className="w-4 h-4" />
+                        Gestión Rápida
+                      </Button>
+                    )}
                     <Button onClick={() => openCreate(t.tipo)}>
                       <Plus className="w-4 h-4 mr-2" />
                       Agregar {t.label}
@@ -386,12 +397,19 @@ export function NomencladoresStep() {
         </DialogContent>
       </Dialog>
 
-      <div className="flex justify-end">
+      <div className="flex justify-start">
         <Button onClick={handleGuardarPaso} disabled={isSaving} size="lg">
           <Save className="w-4 h-4 mr-2" />
-          {isSaving ? 'Guardando...' : 'Guardar Nomencladores'}
+          {isSaving ? 'Guardando...' : 'Guardar y Continuar'}
         </Button>
       </div>
+
+      <ThematicsManagerModal
+        open={isThematicsManagerOpen}
+        onOpenChange={setIsThematicsManagerOpen}
+        eventoId={evento?.id || ''}
+        onSave={loadData}
+      />
     </div>
   );
 }

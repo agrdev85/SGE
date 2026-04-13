@@ -8,6 +8,7 @@ import { EventProvider } from "@/contexts/EventContext";
 import { WallpaperProvider } from "@/hooks/useWallpaperConfig";
 import { DialogProvider } from "@/components/ui/ConfirmationDialog";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { LanguageProvider } from "@/hooks/useLanguage";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -56,6 +57,7 @@ const App = () => (
           <WallpaperProvider>
             <DialogProvider>
               <TooltipProvider>
+              <LanguageProvider>
               <Toaster />
               <Sonner />
               <BrowserRouter>
@@ -67,7 +69,7 @@ const App = () => (
               <Route path="/abstracts" element={<Abstracts />} />
               <Route path="/abstracts/new" element={<NewAbstract />} />
               <Route path="/abstracts/edit/:abstractId" element={<EditAbstract />} />
-              <Route path="/evento/:eventId" element={<EventoLanding />} />
+              <Route path="/evento/:slug" element={<EventoLanding />} />
               <Route path="/event/:eventId" element={<EventLanding />} />
               <Route path="/review" element={<Review />} />
               <Route path="/committee" element={<Committee />} />
@@ -100,6 +102,7 @@ const App = () => (
             </Routes>
             <ScrollToTop />
             </BrowserRouter>
+            </LanguageProvider>
           </TooltipProvider>
           </DialogProvider>
         </WallpaperProvider>

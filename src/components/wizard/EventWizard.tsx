@@ -3,9 +3,8 @@ import { useWizard, WizardProvider } from '@/contexts/WizardContext';
 import { WizardProgress } from './WizardProgress';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Loader2, Plus, ArrowLeft, ArrowRight, Save, Rocket } from 'lucide-react';
+import { Loader2, Plus, ArrowLeft, Rocket } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { FloatingActionBar } from '@/components/ui/floating-action-bar';
 import { toast } from 'sonner';
 import { db } from '@/lib/database';
 
@@ -20,8 +19,7 @@ import { FinalStep } from './steps/FinalStep';
 function EventWizardContent() {
   const { eventoId } = useParams<{ eventoId?: string }>();
   const navigate = useNavigate();
-  const { state, evento, cargarEvento, crearNuevoEvento, siguientePaso, pasoAnterior } = useWizard();
-  const [isSaving, setIsSaving] = useState(false);
+  const { state, evento, cargarEvento, crearNuevoEvento } = useWizard();
   const [isPublishing, setIsPublishing] = useState(false);
 
   const pasosRequeridos = [1, 2, 3, 4, 5, 6, 7];
@@ -33,31 +31,19 @@ function EventWizardContent() {
     }
   }, [eventoId, cargarEvento]);
 
+  useEffect(() => {
+    const handleDataChange = () => {
+      if (eventoId) {
+        cargarEvento(eventoId);
+      }
+    };
+    window.addEventListener('sge-data-change', handleDataChange);
+    return () => window.removeEventListener('sge-data-change', handleDataChange);
+  }, [eventoId, cargarEvento]);
+
   const handleCrearNuevo = async () => {
     const id = await crearNuevoEvento({ name: 'Nuevo Evento' });
     navigate(`/events/wizard/${id}`);
-  };
-
-  const handleSiguiente = () => {
-    if (state.pasoActual < 7) {
-      siguientePaso();
-    }
-  };
-
-  const handleAnterior = () => {
-    if (state.pasoActual > 1) {
-      pasoAnterior();
-    }
-  };
-
-  const handleGuardarProgreso = async () => {
-    setIsSaving(true);
-    try {
-      toast.success('Progreso guardado correctamente');
-    } catch (error) {
-      toast.error('Error al guardar');
-    }
-    setIsSaving(false);
   };
 
   const handlePublicar = async () => {
@@ -138,7 +124,7 @@ function EventWizardContent() {
   }
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-6">
       <Button
         variant="ghost"
         onClick={() => navigate('/events')}
@@ -165,46 +151,6 @@ function EventWizardContent() {
           <StepContent paso={state.pasoActual} />
         </CardContent>
       </Card>
-
-      <FloatingActionBar
-        leftContent={
-          <>
-            <Button
-              variant="outline"
-              onClick={handleAnterior}
-              disabled={state.pasoActual === 1 || isSaving}
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Anterior
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleGuardarProgreso}
-              disabled={isSaving || isPublishing}
-            >
-              <Save className="w-4 h-4 mr-2" />
-              {isSaving ? 'Guardando...' : 'Guardar'}
-            </Button>
-          </>
-        }
-        rightContent={
-          state.pasoActual < 7 ? (
-            <Button onClick={handleSiguiente}>
-              Siguiente
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          ) : state.pasoActual === 7 ? (
-            <Button
-              onClick={handlePublicar}
-              disabled={isPublishing || pasosFaltantes.length > 0}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              <Rocket className="w-4 h-4 mr-2" />
-              {isPublishing ? 'Publicando...' : 'Publicar Evento'}
-            </Button>
-          ) : null
-        }
-      />
     </div>
   );
 }

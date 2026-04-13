@@ -163,6 +163,15 @@ export interface MacroEvent {
   registrationFields?: FormField[];
   receptivoId?: string; // FK to NomReceptivo - data isolation
   empresaId?: string; // FK to NomEmpresa - data isolation
+  urlEvento?: string; // URL pública del evento
+  modoCargaTrabajos?: 'TEMATICA' | 'SUBEVENTO'; // Modo de carga de trabajos
+  tituloPublico?: string;
+  contenidoHtml?: string;
+  monedaPrincipal?: Moneda;
+  tasasCambio?: TasasCambio;
+  estadoConfiguracion?: EstadoConfiguracionEvento;
+  pasoActual?: number;
+  programaSocial?: string[];
   isActive: boolean;
   createdAt: string;
 }
@@ -530,6 +539,7 @@ export interface EmailTemplate {
   subject: string;
   htmlBody: string;
   name?: string;
+  autoTrigger?: 'ON_INSCRIPTION' | 'ON_ABSTRACT_SUBMIT' | 'ON_ABSTRACT_APPROVED' | 'ON_ABSTRACT_REJECTED' | 'ON_ABSTRACT_REVISION' | 'ON_CERTIFICATE_READY';
 }
 
 export interface SentEmail {

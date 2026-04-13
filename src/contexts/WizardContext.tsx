@@ -63,6 +63,7 @@ interface WizardContextType {
   puedeAccederPaso: (paso: number) => boolean;
   esPasoCompletado: (paso: number) => boolean;
   guardarYSalir: () => Promise<void>;
+  guardarYContinuar: (paso: number, datos: Partial<MacroEvent>) => Promise<void>;
   cargarEvento: (eventoId: string) => Promise<void>;
   crearNuevoEvento: (datos: Partial<MacroEvent>) => Promise<string>;
   porcentajeCompletado: number;
@@ -191,16 +192,21 @@ export function WizardProvider({ children }: { children: React.ReactNode }) {
       if (eventoData) {
         setEvento(eventoData);
         const pasosValidos = (progress?.pasosCompletados || []).filter(p => p >= 1 && p <= 7);
-        setState(prev => ({
-          ...prev,
+        const pasoActualValido = (progress?.pasoActual && progress.pasoActual >= 1 && progress.pasoActual <= 7) 
+          ? progress.pasoActual 
+          : 1;
+        setState({
           eventoId,
-          pasoActual: (progress?.pasoActual && progress.pasoActual <= 7) ? progress.pasoActual : 1,
+          pasoActual: pasoActualValido,
           pasosCompletados: pasosValidos,
           datosTemporal: eventoData,
           ultimaModificacion: progress?.ultimaModificacion || null,
           modificadoPor: progress?.modificadoPor || null,
           isLoading: false,
-        }));
+          isSaving: false,
+          errores: {},
+          hotelesData: null,
+        });
       } else {
         throw new Error('Evento no encontrado');
       }
@@ -263,6 +269,55 @@ export function WizardProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state.eventoId, evento, state.pasoActual, state.pasosCompletados, user?.id]);
 
+  const guardarYContinuar = useCallback(async (paso: number, datos: Partial<MacroEvent>) => {
+    if (!state.eventoId) return;
+    
+    setState(prev => ({ ...prev, isSaving: true }));
+    
+    try {
+      db.macroEvents.update(state.eventoId, datos);
+      
+      const pasosActualizados = state.pasosCompletados.includes(paso)
+        ? state.pasosCompletados
+        : [...state.pasosCompletados, paso];
+      
+      db.wizardProgress.create({
+        eventoId: state.eventoId,
+        pasoActual: paso,
+        pasosCompletados: pasosActualizados,
+        modificadoPor: user?.id || 'system',
+      });
+      
+      const sigPaso = paso + 1;
+      if (sigPaso <= 7) {
+        setState(prev => ({
+          ...prev,
+          pasoActual: sigPaso,
+          pasosCompletados: pasosActualizados,
+          datosTemporal: { ...prev.datosTemporal, ...datos },
+          ultimaModificacion: new Date().toISOString(),
+          modificadoPor: user?.id || null,
+          isSaving: false,
+        }));
+      } else {
+        setState(prev => ({
+          ...prev,
+          datosTemporal: { ...prev.datosTemporal, ...datos },
+          ultimaModificacion: new Date().toISOString(),
+          modificadoPor: user?.id || null,
+          isSaving: false,
+        }));
+      }
+    } catch (error) {
+      console.error('Error guardando y continuando:', error);
+      setState(prev => ({
+        ...prev,
+        isSaving: false,
+        errores: { ...prev.errores, [paso]: 'Error al guardar' },
+      }));
+    }
+  }, [state.eventoId, state.pasosCompletados, user?.id]);
+
   const porcentajeCompletado = Math.round((state.pasosCompletados.length / 7) * 100);
 
   const getPasosInfo = useCallback(() => {
@@ -300,6 +355,7 @@ export function WizardProvider({ children }: { children: React.ReactNode }) {
     puedeAccederPaso,
     esPasoCompletado,
     guardarYSalir,
+    guardarYContinuar,
     cargarEvento,
     crearNuevoEvento,
     porcentajeCompletado,

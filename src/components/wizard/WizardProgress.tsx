@@ -1,7 +1,6 @@
 import React from 'react';
 import { useWizard } from '@/contexts/WizardContext';
-import { Check, Lock, Circle, ChevronRight, Save } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Check, Lock } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 
@@ -10,9 +9,6 @@ export function WizardProgress() {
     evento, 
     getPasosInfo, 
     irAPaso, 
-    pasoAnterior, 
-    siguientePaso, 
-    guardarYSalir, 
     porcentajeCompletado,
     state 
   } = useWizard();
@@ -47,7 +43,6 @@ export function WizardProgress() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold">Configurar Evento</h2>
@@ -60,7 +55,6 @@ export function WizardProgress() {
         </Badge>
       </div>
 
-      {/* Progress Bar */}
       <div className="space-y-2">
         <Progress value={porcentajeCompletado} className="h-2" />
         <p className="text-sm text-muted-foreground text-right">
@@ -68,7 +62,6 @@ export function WizardProgress() {
         </p>
       </div>
 
-      {/* Pasos */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-2">
         {pasosInfo.map((paso) => (
           <button
@@ -104,36 +97,6 @@ export function WizardProgress() {
         ))}
       </div>
 
-      {/* Navigation */}
-      <div className="flex items-center justify-between pt-4 border-t">
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={pasoAnterior}
-            disabled={state.pasoActual === 1}
-          >
-            <ChevronRight className="w-4 h-4 mr-1 rotate-180" />
-            Anterior
-          </Button>
-          <Button
-            onClick={siguientePaso}
-            disabled={state.pasoActual === 7}
-          >
-            Siguiente
-            <ChevronRight className="w-4 h-4 ml-1" />
-          </Button>
-        </div>
-        <Button
-          variant="outline"
-          onClick={guardarYSalir}
-          disabled={state.isSaving}
-        >
-          <Save className="w-4 h-4 mr-2" />
-          {state.isSaving ? 'Guardando...' : 'Guardar y Salir'}
-        </Button>
-      </div>
-
-      {/* Last saved info */}
       {state.ultimaModificacion && (
         <p className="text-xs text-muted-foreground text-center">
           Última modificación: {new Date(state.ultimaModificacion).toLocaleString('es-ES')}

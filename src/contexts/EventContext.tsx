@@ -11,6 +11,7 @@ interface EventContextType {
   showEventSelector: boolean;
   setShowEventSelector: (v: boolean) => void;
   refreshEvents: () => void;
+  eventChangeTrigger: number;
 }
 
 const EventContext = createContext<EventContextType | undefined>(undefined);
@@ -21,6 +22,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
   const [userEvents, setUserEvents] = useState<MacroEvent[]>([]);
   const [isFirstVisit, setIsFirstVisit] = useState(false);
   const [showEventSelector, setShowEventSelector] = useState(false);
+  const [eventChangeTrigger, setEventChangeTrigger] = useState(0);
 
   const loadUserEvents = () => {
     if (!user) { setUserEvents([]); return; }
@@ -82,9 +84,11 @@ export function EventProvider({ children }: { children: ReactNode }) {
     setSelectedEventIdState(id);
     setShowEventSelector(false);
     setIsFirstVisit(false);
+    setEventChangeTrigger(prev => prev + 1);
     if (user) {
       localStorage.setItem(`last_event_${user.id}`, id);
     }
+    window.dispatchEvent(new CustomEvent('sge-event-changed', { detail: { eventId: id } }));
   };
 
   const selectedEvent = userEvents.find(e => e.id === selectedEventId) || null;
@@ -99,6 +103,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
       showEventSelector,
       setShowEventSelector,
       refreshEvents: loadUserEvents,
+      eventChangeTrigger,
     }}>
       {children}
     </EventContext.Provider>

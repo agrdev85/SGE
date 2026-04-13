@@ -60,7 +60,7 @@ interface TipoHabitacionFormData {
 }
 
 export function HotelesStep() {
-  const { evento, guardarPaso, state, guardarHotelesData, obtenerHotelesData } = useWizard();
+  const { evento, guardarYContinuar, state, guardarHotelesData, obtenerHotelesData } = useWizard();
   const { canManageNomencladores } = useAuth();
   const { confirm, success } = useConfirmation();
   const [activeTab, setActiveTab] = useState('hoteles');
@@ -695,9 +695,8 @@ export function HotelesStep() {
         }
       }
 
-      await guardarPaso(2, {} as any);
-      toast.success('Hoteles y alojamientos guardados');
-      success({ title: '¡Guardado!', description: 'Hoteles y alojamientos guardados correctamente' });
+      await guardarYContinuar(2, {} as any);
+      success({ title: '¡Guardado!', description: 'Continuando al siguiente paso...' });
     } catch (error) {
       toast.error('Error al guardar');
       console.error(error);
@@ -1132,10 +1131,10 @@ export function HotelesStep() {
         </CardContent>
       </Card>
 
-      <div className="flex justify-end">
+      <div className="flex justify-start">
         <Button onClick={handleSave} disabled={isSaving} size="lg">
           <Save className="w-4 h-4 mr-2" />
-          {isSaving ? 'Guardando...' : 'Guardar Hoteles y Alojamiento'}
+          {isSaving ? 'Guardando...' : 'Guardar y Continuar'}
         </Button>
       </div>
 

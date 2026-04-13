@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/hooks/useLanguage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -45,6 +46,7 @@ export default function Register() {
   const [photoPreview, setPhotoPreview] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const { register } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   useEffect(() => { if (macroEventId) { const me = db.macroEvents.getById(macroEventId); if (me) setMacroEvent(me); } }, [macroEventId]);
@@ -54,7 +56,7 @@ export default function Register() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.password !== formData.confirmPassword) { toast.error('Las contraseñas no coinciden'); return; }
+    if (formData.password !== formData.confirmPassword) { toast.error(t('register.passwordMismatch')); return; }
     setIsLoading(true);
     try {
       await register({ name: formData.name, email: formData.email, role: 'USER', country: formData.country, affiliation: formData.affiliation, idDocument: formData.idDocument, affiliationType: formData.affiliationType, economicSector: formData.economicSector, participationType: formData.participationType, scientificLevel: formData.scientificLevel, educationalLevel: formData.educationalLevel, gender: formData.gender, avatar: photoPreview } as any);
@@ -112,12 +114,17 @@ export default function Register() {
         <div className="max-w-lg text-center text-primary-foreground animate-fade-in">
           <div className="mb-8">
             <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-accent shadow-lg mb-4"><Layers className="h-10 w-10 text-accent-foreground" /></div>
-            <h2 className="text-4xl font-display font-bold mb-4">{macroEvent ? `Inscripción — ${macroEvent.name}` : 'Crear Nueva Cuenta'}</h2>
+            <h2 className="text-4xl font-display font-bold mb-4">{macroEvent ? `${t('register.inscription')} — ${macroEvent.name}` : t('register.heroTitle')}</h2>
             <div className="h-1 w-32 bg-accent mx-auto mb-6"></div>
           </div>
-          <p className="text-lg opacity-90 mb-8">{macroEvent ? `Completa tus datos para inscribirte en ${macroEvent.acronym}.` : 'Regístrate para participar en eventos, enviar tus trabajos y conectar con otros profesionales.'}</p>
+          <p className="text-lg opacity-90 mb-8">{macroEvent ? `${t('register.inscriptionDesc')} ${macroEvent.acronym}.` : t('register.heroDesc')}</p>
           <div className="grid grid-cols-2 gap-4 text-sm">
-            {[{ title: 'Envía Resúmenes', desc: 'Presenta tus trabajos' }, { title: 'Revisión por Pares', desc: 'Feedback de expertos' }, { title: 'Networking', desc: 'Conecta con colegas' }, { title: 'Certificados', desc: 'Reconocimiento oficial' }].map((item) => (
+            {[
+              { title: t('register.card.submitAbstract'), desc: t('register.card.submitAbstractDesc') },
+              { title: t('register.card.peerReview'), desc: t('register.card.peerReviewDesc') },
+              { title: t('register.card.networking'), desc: t('register.card.networkingDesc') },
+              { title: t('register.card.certificates'), desc: t('register.card.certificatesDesc') }
+            ].map((item) => (
               <div key={item.title} className="p-4 rounded-xl bg-white/10 backdrop-blur-sm text-left border border-white/20">
                 <p className="font-semibold text-accent">{item.title}</p><p className="text-sm opacity-80">{item.desc}</p>
               </div>
@@ -127,11 +134,11 @@ export default function Register() {
       </div>
       <div className="flex-1 flex items-center justify-center p-8 overflow-y-auto">
         <div className="w-full max-w-2xl animate-slide-up my-8">
-          <Link to="/login" className="inline-flex items-center gap-2 text-sm text-primary-foreground/70 hover:text-primary-foreground mb-8"><ArrowLeft className="h-4 w-4" />Volver al inicio</Link>
+          <Link to="/login" className="inline-flex items-center gap-2 text-sm text-primary-foreground/70 hover:text-primary-foreground mb-8"><ArrowLeft className="h-4 w-4" />{t('register.backLogin')}</Link>
           <Card className="border-0 shadow-2xl bg-card/95 backdrop-blur-sm">
             <CardHeader className="space-y-1 border-b-2 border-primary">
-              <CardTitle className="text-3xl font-display text-center text-foreground">{macroEvent ? 'Formulario de Inscripción' : 'Crear Nueva Cuenta'}</CardTitle>
-              <CardDescription className="text-center">{macroEvent ? macroEvent.name : 'Completa tus datos para registrarte'}</CardDescription>
+              <CardTitle className="text-3xl font-display text-center text-foreground">{macroEvent ? t('register.inscription') : t('register.title')}</CardTitle>
+              <CardDescription className="text-center">{macroEvent ? macroEvent.name : t('register.subtitle')}</CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
               <form onSubmit={handleSubmit} className="space-y-5">
@@ -140,11 +147,11 @@ export default function Register() {
                   return <div key={idx} className={`grid grid-cols-1 ${row.length > 1 ? 'md:grid-cols-2' : ''} gap-4`}>{row.map((f: any) => renderField(f))}</div>;
                 })}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label htmlFor="password" className="text-sm font-medium text-foreground">Contraseña <span className="text-destructive">*</span></Label><Input id="password" type="password" value={formData.password} onChange={e => updateForm('password', e.target.value)} required className="border-border focus:border-primary focus:ring-primary" /></div>
-                  <div className="space-y-2"><Label htmlFor="confirmPassword" className="text-sm font-medium text-foreground">Confirmar contraseña <span className="text-destructive">*</span></Label><Input id="confirmPassword" type="password" value={formData.confirmPassword} onChange={e => updateForm('confirmPassword', e.target.value)} required className="border-border focus:border-primary focus:ring-primary" /></div>
+                  <div className="space-y-2"><Label htmlFor="password" className="text-sm font-medium text-foreground">{t('register.password')} <span className="text-destructive">*</span></Label><Input id="password" type="password" value={formData.password} onChange={e => updateForm('password', e.target.value)} required className="border-border focus:border-primary focus:ring-primary" /></div>
+                  <div className="space-y-2"><Label htmlFor="confirmPassword" className="text-sm font-medium text-foreground">{t('register.confirmPassword')} <span className="text-destructive">*</span></Label><Input id="confirmPassword" type="password" value={formData.confirmPassword} onChange={e => updateForm('confirmPassword', e.target.value)} required className="border-border focus:border-primary focus:ring-primary" /></div>
                 </div>
-                <div className="pt-4"><Button type="submit" className="w-full text-lg py-6 font-bold" variant="hero" disabled={isLoading}>{isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <>REGÍSTRESE <ArrowRight className="h-5 w-5 ml-2" /></>}</Button></div>
-                <p className="text-center text-sm text-muted-foreground pt-2">¿Ya tienes cuenta?{' '}<Link to="/login" className="font-medium text-primary hover:underline">Inicia Sesión</Link></p>
+                <div className="pt-4"><Button type="submit" className="w-full text-lg py-6 font-bold" variant="hero" disabled={isLoading}>{isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <>{t('register.submit')} <ArrowRight className="h-5 w-5 ml-2" /></>}</Button></div>
+                <p className="text-center text-sm text-muted-foreground pt-2">{t('register.hasAccount')}{' '}<Link to="/login" className="font-medium text-primary hover:underline">{t('register.login')}</Link></p>
               </form>
             </CardContent>
           </Card>

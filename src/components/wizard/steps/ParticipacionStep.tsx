@@ -25,7 +25,7 @@ interface TipoParticipacionConfig {
 }
 
 export function ParticipacionStep() {
-  const { evento, guardarPaso, state } = useWizard();
+  const { evento, guardarYContinuar, state } = useWizard();
   const { confirm, success } = useConfirmation();
   const [tiposGlobales, setTiposGlobales] = useState<NomTipoParticipacion[]>([]);
   const [tiposSeleccionados, setTiposSeleccionados] = useState<string[]>([]);
@@ -222,9 +222,8 @@ export function ParticipacionStep() {
           });
         });
       }
-      await guardarPaso(3, {} as any);
-      toast.success('Tipos de participación guardados');
-      success({ title: '¡Guardado!', description: 'Tipos de participación guardados correctamente' });
+      await guardarYContinuar(3, {} as any);
+      success({ title: '¡Guardado!', description: 'Continuando al siguiente paso...' });
     } catch (error) {
       toast.error('Error al guardar');
     }
@@ -440,10 +439,10 @@ export function ParticipacionStep() {
         </Card>
       )}
 
-      <div className="flex justify-end">
+      <div className="flex justify-start">
         <Button onClick={handleGuardarPaso} disabled={isSaving} size="lg">
           <Save className="w-4 h-4 mr-2" />
-          {isSaving ? 'Guardando...' : 'Guardar Tipos de Participación'}
+          {isSaving ? 'Guardando...' : 'Guardar y Continuar'}
         </Button>
       </div>
 

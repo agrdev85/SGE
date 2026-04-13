@@ -7,28 +7,71 @@ import { db, MacroEvent, Event } from '@/lib/database';
 import { Calendar, ArrowLeft, Users, Layers } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useLanguage } from '@/hooks/useLanguage';
 
 export default function EventoLanding() {
-  const { eventId } = useParams();
+  const { slug } = useParams();
   const navigate = useNavigate();
+  const { t, language } = useLanguage();
   const [macro, setMacro] = useState<MacroEvent | null>(null);
   const [subEvents, setSubEvents] = useState<Event[]>([]);
+  const [notFound, setNotFound] = useState(false);
+  const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
-    if (eventId) {
-      const me = db.macroEvents.getById(eventId);
-      if (me) {
-        setMacro(me);
-        const events = db.events.getAll().filter(e => e.macroEventId === me.id);
-        setSubEvents(events);
-      }
-    }
-  }, [eventId]);
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    setIsDark(mediaQuery.matches);
+    const handler = (e: MediaQueryListEvent) => setIsDark(e.matches);
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, []);
 
-  if (!macro) {
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDark]);
+
+  useEffect(() => {
+    if (!slug) {
+      setNotFound(true);
+      return;
+    }
+
+    const allMacroEvents = db.macroEvents.getAll();
+    
+    const me = allMacroEvents.find(m => {
+      const urlEvento = (m as any).urlEvento || '';
+      return urlEvento.toLowerCase() === slug.toLowerCase() || 
+             m.acronym?.toLowerCase() === slug.toLowerCase() ||
+             m.id === slug;
+    });
+
+    if (me) {
+      setMacro(me);
+      const events = db.events.getAll().filter(e => e.macroEventId === me.id);
+      setSubEvents(events);
+      setNotFound(false);
+    } else {
+      setNotFound(true);
+    }
+  }, [slug]);
+
+  if (notFound || !macro) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p>Evento no encontrado</p>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-muted-foreground mb-2">404</h1>
+          <p className="text-xl text-muted-foreground">Evento no encontrado</p>
+          <p className="text-sm text-muted-foreground mt-2">
+            El evento "{slug}" no existe o no está disponible.
+          </p>
+        </div>
+        <Button onClick={() => navigate('/')} variant="outline">
+          Volver al inicio
+        </Button>
       </div>
     );
   }
@@ -63,7 +106,7 @@ export default function EventoLanding() {
         />
         <div className="absolute top-4 left-4">
           <Button variant="secondary" onClick={() => navigate('/')} className="gap-2">
-            <ArrowLeft className="h-4 w-4" /> Volver
+            <ArrowLeft className="h-4 w-4" /> {t('event.back')}
           </Button>
         </div>
         <div className="absolute bottom-6 left-6 right-6 text-white">
@@ -72,8 +115,8 @@ export default function EventoLanding() {
           <div className="flex items-center gap-4 text-white/90">
             <span className="flex items-center gap-1">
               <Calendar className="h-4 w-4" />
-              {macro.startDate && format(new Date(macro.startDate), 'dd MMM yyyy', { locale: es })} - 
-              {macro.endDate && format(new Date(macro.endDate), 'dd MMM yyyy', { locale: es })}
+              {macro.startDate && format(new Date(macro.startDate), 'dd MMM yyyy', { locale: language === 'es' ? es : undefined })} - 
+              {macro.endDate && format(new Date(macro.endDate), 'dd MMM yyyy', { locale: language === 'es' ? es : undefined })}
             </span>
           </div>
         </div>
@@ -105,11 +148,11 @@ export default function EventoLanding() {
         <section>
           <h2 className="text-2xl font-display font-bold mb-6 flex items-center gap-2">
             <Layers className="h-6 w-6" />
-            Actividades y Componentes
+            {t('event.activities')}
           </h2>
           
           {subEvents.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No hay sub eventos disponibles</p>
+            <p className="text-muted-foreground text-center py-8">{t('event.noSubEvents')}</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {subEvents.filter(e => e.isActive).map(event => (
@@ -139,7 +182,7 @@ export default function EventoLanding() {
                         className="w-full"
                         style={{ backgroundColor: primaryColor }}
                       >
-                        Ver Detalles
+                        {t('event.viewDetails')}
                       </Button>
                     </CardContent>
                   </Card>

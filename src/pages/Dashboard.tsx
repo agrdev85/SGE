@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEventContext } from '@/contexts/EventContext';
+import { useLanguage } from '@/hooks/useLanguage';
 import { StatCard } from '@/components/StatCard';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +16,7 @@ import { Link } from 'react-router-dom';
 export default function Dashboard() {
   const { user } = useAuth();
   const { selectedEvent, userEvents, setSelectedEventId, showEventSelector, setShowEventSelector, isFirstVisit } = useEventContext();
+  const { t } = useLanguage();
   const [stats, setStats] = useState({ totalAbstracts: 0, pendingReview: 0, approved: 0, rejected: 0, events: 0 });
   const [recentAbstracts, setRecentAbstracts] = useState<Abstract[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,9 +37,9 @@ export default function Dashboard() {
   }, [user]);
 
   const roleGreetings: Record<string, string> = {
-    USER: 'Participante', REVIEWER: 'Revisor', COMMITTEE: 'Miembro del Comité', ADMIN: 'Administrador',
-    SUPERADMIN: 'SuperAdmin', ADMIN_RECEPTIVO: 'Admin Receptivo', ADMIN_EMPRESA: 'Admin Empresa',
-    COORDINADOR_HOTEL: 'Coordinador Hotel', LECTOR_RECEPTIVO: 'Lector Receptivo', LECTOR_EMPRESA: 'Lector Empresa',
+    USER: t('dashboard.role.participant'), REVIEWER: t('dashboard.role.reviewer'), COMMITTEE: t('dashboard.role.committee'), ADMIN: t('dashboard.role.admin'),
+    SUPERADMIN: t('dashboard.role.superadmin'), ADMIN_RECEPTIVO: t('dashboard.role.adminReceptivo'), ADMIN_EMPRESA: t('dashboard.role.adminEmpresa'),
+    COORDINADOR_HOTEL: t('dashboard.role.coordinadorHotel'), LECTOR_RECEPTIVO: t('dashboard.role.lectorReceptivo'), LECTOR_EMPRESA: t('dashboard.role.lectorEmpresa'),
   };
 
   // EVENT CARDS VIEW (first visit or "Ver todos mis eventos")
@@ -46,11 +48,11 @@ export default function Dashboard() {
       <DashboardLayout>
         <div className="space-y-6">
           <div>
-            <h1 className="text-3xl font-display font-bold">👋 Hola, {user?.name?.split(' ')[0]}</h1>
+            <h1 className="text-3xl font-display font-bold">👋 {t('dashboard.greeting')} {user?.name?.split(' ')[0]}</h1>
             <p className="text-muted-foreground mt-1">
               {userEvents.length > 0
-                ? `Estás registrado en ${userEvents.length} evento${userEvents.length > 1 ? 's' : ''}:`
-                : 'No tienes eventos asociados aún.'}
+                ? `${t('dashboard.eventsRegistered')} ${userEvents.length} ${userEvents.length > 1 ? t('dashboard.events') : t('dashboard.event')}:`
+                : t('dashboard.noEvents')}
             </p>
           </div>
 
@@ -95,15 +97,15 @@ export default function Dashboard() {
                     </div>
                     <div className="pt-2">
                       {daysUntil > 0 ? (
-                        <Badge variant="secondary" className="text-xs">Faltan {daysUntil} días</Badge>
+                        <Badge variant="secondary" className="text-xs">{t('dashboard.daysLeft')} {daysUntil} {t('dashboard.days')}</Badge>
                       ) : daysUntil === 0 ? (
-                        <Badge className="text-xs bg-green-500">¡Hoy!</Badge>
+                        <Badge className="text-xs bg-green-500">{t('dashboard.today')}</Badge>
                       ) : (
-                        <Badge variant="outline" className="text-xs">Finalizado</Badge>
+                        <Badge variant="outline" className="text-xs">{t('dashboard.finished')}</Badge>
                       )}
                     </div>
                     <Button variant="hero" size="sm" className="w-full mt-2">
-                      Ir al Dashboard <ArrowRight className="h-4 w-4 ml-1" />
+                      {t('dashboard.goToDashboard')} <ArrowRight className="h-4 w-4 ml-1" />
                     </Button>
                   </CardContent>
                 </Card>
@@ -122,25 +124,25 @@ export default function Dashboard() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-display font-bold">
-              ¡Hola, {user?.name?.split(' ')[0]}!
+              {t('dashboard.greeting')} {user?.name?.split(' ')[0]}!
             </h1>
             <p className="text-muted-foreground mt-1">
-              Panel de {roleGreetings[user?.role || 'USER']}
+              {t('dashboard.panel')} {roleGreetings[user?.role || 'USER']}
               {selectedEvent && <> — <strong>{selectedEvent.name}</strong></>}
             </p>
           </div>
           {user?.role === 'USER' && (
             <Button variant="hero" asChild>
-              <Link to="/abstracts/new"><Plus className="h-4 w-4" />Nuevo Resumen</Link>
+              <Link to="/abstracts/new"><Plus className="h-4 w-4" />{t('dashboard.newAbstract')}</Link>
             </Button>
           )}
         </div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <StatCard title="Total Resúmenes" value={stats.totalAbstracts} icon={FileText} variant="primary" />
-          <StatCard title="En Proceso" value={stats.pendingReview} icon={Clock} variant="warning" />
-          <StatCard title="Aprobados" value={stats.approved} icon={CheckCircle} variant="success" />
+          <StatCard title={t('dashboard.totalAbstracts')} value={stats.totalAbstracts} icon={FileText} variant="primary" />
+          <StatCard title={t('dashboard.inProcess')} value={stats.pendingReview} icon={Clock} variant="warning" />
+          <StatCard title={t('dashboard.approved')} value={stats.approved} icon={CheckCircle} variant="success" />
         </div>
 
         {/* Main Content Grid */}
@@ -150,15 +152,15 @@ export default function Dashboard() {
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="font-display">
-                  {user?.role === 'REVIEWER' ? 'Pendientes de Revisión' : 'Mis Resúmenes Recientes'}
+                  {user?.role === 'REVIEWER' ? t('dashboard.pendingReview') : t('dashboard.myRecentAbstracts')}
                 </CardTitle>
                 <CardDescription>
-                  {user?.role === 'REVIEWER' ? 'Resúmenes asignados para tu revisión' : 'Estado actual de tus envíos'}
+                  {user?.role === 'REVIEWER' ? t('dashboard.pendingReview') : t('dashboard.status')}
                 </CardDescription>
               </div>
               <Button variant="ghost" size="sm" asChild>
                 <Link to={user?.role === 'REVIEWER' ? '/review' : '/abstracts'}>
-                  Ver todos <ArrowRight className="h-4 w-4 ml-1" />
+                  {t('dashboard.viewAll')} <ArrowRight className="h-4 w-4 ml-1" />
                 </Link>
               </Button>
             </CardHeader>
@@ -168,10 +170,10 @@ export default function Dashboard() {
               ) : recentAbstracts.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No hay resúmenes aún</p>
+                  <p>{t('dashboard.noAbstracts')}</p>
                   {user?.role === 'USER' && (
                     <Button variant="outline" size="sm" className="mt-4" asChild>
-                      <Link to="/abstracts/new">Enviar mi primer resumen</Link>
+                      <Link to="/abstracts/new">{t('dashboard.sendFirst')}</Link>
                     </Button>
                   )}
                 </div>
@@ -194,8 +196,8 @@ export default function Dashboard() {
           {/* Event Info Card */}
           <Card>
             <CardHeader>
-              <CardTitle className="font-display">Evento Actual</CardTitle>
-              <CardDescription>Información del evento seleccionado</CardDescription>
+              <CardTitle className="font-display">{t('dashboard.currentEvent')}</CardTitle>
+              <CardDescription>{t('dashboard.eventInfo')}</CardDescription>
             </CardHeader>
             <CardContent>
               {selectedEvent ? (
@@ -223,7 +225,7 @@ export default function Dashboard() {
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Selecciona un evento</p>
+                  <p>{t('dashboard.selectEvent')}</p>
                 </div>
               )}
             </CardContent>

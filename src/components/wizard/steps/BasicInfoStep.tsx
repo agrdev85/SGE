@@ -24,7 +24,7 @@ const COLORES_PRESETIDOS = [
 ];
 
 export function BasicInfoStep() {
-  const { evento, guardarPaso, state } = useWizard();
+  const { evento, guardarYContinuar, state } = useWizard();
   const { success } = useConfirmation();
   
   const [form, setForm] = useState({
@@ -46,6 +46,8 @@ export function BasicInfoStep() {
       USD: 120,
       EUR: 130,
     },
+    urlEvento: '',
+    modoCargaTrabajos: 'TEMATICA' as 'TEMATICA' | 'SUBEVENTO',
   });
 
   const [activeTab, setActiveTab] = useState('informacion');
@@ -75,6 +77,8 @@ export function BasicInfoStep() {
         contenidoHtml: (evento as any).contenidoHtml || '',
         monedaPrincipal: (evento as any).monedaPrincipal || 'USD',
         tasasCambio: (evento as any).tasasCambio || { USD: 120, EUR: 130 },
+        urlEvento: (evento as any).urlEvento || '',
+        modoCargaTrabajos: (evento as any).modoCargaTrabajos || 'TEMATICA',
       });
     }
   }, [evento]);
@@ -91,7 +95,7 @@ export function BasicInfoStep() {
 
     setIsSaving(true);
     try {
-      await guardarPaso(1, {
+      await guardarYContinuar(1, {
         name: form.name,
         acronym: form.acronym,
         description: form.description,
@@ -107,9 +111,10 @@ export function BasicInfoStep() {
         contenidoHtml: form.contenidoHtml,
         monedaPrincipal: form.monedaPrincipal,
         tasasCambio: form.tasasCambio,
+        urlEvento: form.urlEvento,
+        modoCargaTrabajos: form.modoCargaTrabajos,
       } as any);
-      toast.success('Información básica guardada');
-      success({ title: '¡Guardado!', description: 'Información básica guardada correctamente' });
+      success({ title: '¡Guardado!', description: 'Continuando al siguiente paso...' });
     } catch (error) {
       toast.error('Error al guardar');
     }
@@ -200,6 +205,66 @@ export function BasicInfoStep() {
                   onChange={e => setForm({ ...form, tituloPublico: e.target.value })}
                   placeholder="Título que verán los participantes"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label>URL del Evento (Slug)</Label>
+                <div className="flex items-center gap-2 p-3 border rounded-lg bg-muted/30">
+                  <span className="text-muted-foreground text-sm whitespace-nowrap">/evento/</span>
+                  <Input
+                    value={form.urlEvento}
+                    onChange={e => setForm({ ...form, urlEvento: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-') })}
+                    placeholder="mi-evento-2026"
+                    className="flex-1 bg-background font-mono"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  URL pública única del evento. Ejemplo completo: <code className="bg-muted px-1 rounded">http://localhost:8082/evento/{form.urlEvento || 'slug-del-evento'}</code>
+                </p>
+                {form.urlEvento && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-xs text-green-600">✓ URL válida</span>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="text-xs h-auto p-0"
+                      onClick={() => navigator.clipboard.writeText(`${window.location.origin}/evento/${form.urlEvento}`)}
+                    >
+                      Copiar URL
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <Label>Modo de Carga de Trabajos</Label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="modoCarga"
+                      value="TEMATICA"
+                      checked={form.modoCargaTrabajos === 'TEMATICA'}
+                      onChange={() => setForm({ ...form, modoCargaTrabajos: 'TEMATICA' })}
+                      className="w-4 h-4"
+                    />
+                    <span>Temáticas</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="modoCarga"
+                      value="SUBEVENTO"
+                      checked={form.modoCargaTrabajos === 'SUBEVENTO'}
+                      onChange={() => setForm({ ...form, modoCargaTrabajos: 'SUBEVENTO' })}
+                      className="w-4 h-4"
+                    />
+                    <span>SubEventos</span>
+                  </label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Define cómo se organizarán los trabajos científicos en el programa
+                </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -429,10 +494,10 @@ export function BasicInfoStep() {
         </TabsContent>
       </Tabs>
 
-      <div className="flex justify-end">
+      <div className="flex justify-start gap-4">
         <Button onClick={handleSave} disabled={isSaving} size="lg">
           <Save className="w-4 h-4 mr-2" />
-          {isSaving ? 'Guardando...' : 'Guardar Información Básica'}
+          {isSaving ? 'Guardando...' : 'Guardar y Continuar'}
         </Button>
       </div>
     </div>

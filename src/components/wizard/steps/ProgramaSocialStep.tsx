@@ -52,7 +52,7 @@ interface ActividadFormData {
 }
 
 export function ProgramaSocialStep() {
-  const { evento, guardarPaso, state } = useWizard();
+  const { evento, guardarYContinuar, state } = useWizard();
   const { confirm, success } = useConfirmation();
   const [actividades, setActividades] = useState<ActividadSocial[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -222,9 +222,8 @@ export function ProgramaSocialStep() {
   const handleGuardarPaso = async () => {
     setIsSaving(true);
     try {
-      await guardarPaso(5, {} as any);
-      toast.success('Programa social guardado');
-      success({ title: '¡Guardado!', description: 'Programa social guardado correctamente' });
+      await guardarYContinuar(5, {} as any);
+      success({ title: '¡Guardado!', description: 'Continuando al siguiente paso...' });
     } catch (error) {
       toast.error('Error al guardar');
     }
@@ -684,10 +683,10 @@ export function ProgramaSocialStep() {
         </DialogContent>
       </Dialog>
 
-      <div className="flex justify-end">
+      <div className="flex justify-start">
         <Button onClick={handleGuardarPaso} disabled={isSaving} size="lg">
           <Save className="w-4 h-4 mr-2" />
-          {isSaving ? 'Guardando...' : 'Guardar Programa Social'}
+          {isSaving ? 'Guardando...' : 'Guardar y Continuar'}
         </Button>
       </div>
 

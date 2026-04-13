@@ -75,7 +75,7 @@ export function FormBuilderWithPreview({
         label: fieldLabel || fieldConfig?.label || 'Nuevo Campo',
         isRequired: false,
         orderIndex: fields.length,
-        width: 'full',
+        width: 'half',
       };
 
       if (fieldType === 'select' || fieldType === 'radio') {

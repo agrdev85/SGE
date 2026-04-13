@@ -12,7 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import { useConfirmation } from '@/hooks/useConfirmation';
 
 export function FinalStep() {
-  const { evento, guardarPaso, state, getPasosInfo, irAPaso } = useWizard();
+  const { evento, guardarYContinuar, state, getPasosInfo, irAPaso } = useWizard();
   const { success } = useConfirmation();
   const navigate = useNavigate();
   const [isPublishing, setIsPublishing] = useState(false);
@@ -130,8 +130,7 @@ export function FinalStep() {
   const handleGuardar = async () => {
     setIsSaving(true);
     try {
-      await guardarPaso(7, {} as any);
-      toast.success('Configuración guardada');
+      await guardarYContinuar(7, {} as any);
       success({ title: '¡Guardado!', description: 'Configuración guardada correctamente' });
     } catch (error) {
       toast.error('Error al guardar');
@@ -150,8 +149,7 @@ export function FinalStep() {
       if (evento?.id) {
         db.macroEvents.update(evento.id, { isActive: true } as any);
       }
-      await guardarPaso(7, {} as any);
-      toast.success('¡Evento publicado exitosamente!');
+      await guardarYContinuar(7, {} as any);
       success({ title: '¡Publicado!', description: 'Evento publicado correctamente' });
       navigate('/events');
     } catch (error) {
