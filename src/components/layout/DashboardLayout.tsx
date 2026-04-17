@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
+import { LanguageToggle } from './LanguageToggle';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -29,7 +30,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <Sidebar />
       <main className="ml-64 min-h-screen transition-all duration-300">
         <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border">
-          <div className="flex items-center justify-end px-6 py-3">
+          <div className="flex items-center justify-end gap-2 px-6 py-3">
+            <LanguageToggle />
             <ThemeToggle />
           </div>
         </div>

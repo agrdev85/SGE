@@ -212,7 +212,7 @@ function FieldPreview({ field }: { field: FormField }) {
       return <Input type="date" disabled />;
     case 'select':
       return (
-        <select className="w-full h-10 rounded-md border bg-background px-3 text-sm" disabled>
+        <select className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2" disabled>
           <option>Seleccionar...</option>
           {field.options?.map(opt => <option key={opt}>{opt}</option>)}
         </select>

@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { db, NomencladorEvento } from '@/lib/database';
+import React, { useState, useMemo } from 'react';
+import { db, NomencladorEvento, SubEvento } from '@/lib/database';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Card } from '@/components/ui/card';
 import { Plus, X, Trash2, Edit, Globe, Clock, Save, Layers } from 'lucide-react';
 import { useConfirmation } from '@/hooks/useConfirmation';
 
@@ -14,6 +15,7 @@ interface ThematicsManagerModalProps {
   onOpenChange: (open: boolean) => void;
   eventoId: string;
   onSave: () => void;
+  subeventoId?: string;
 }
 
 interface TematicaTemp {
@@ -23,7 +25,7 @@ interface TematicaTemp {
   duracion: number;
 }
 
-export function ThematicsManagerModal({ open, onOpenChange, eventoId, onSave }: ThematicsManagerModalProps) {
+export function ThematicsManagerModal({ open, onOpenChange, eventoId, onSave, subeventoId }: ThematicsManagerModalProps) {
   const { success } = useConfirmation();
   const [tematicasExistentes, setTematicasExistentes] = useState<NomencladorEvento[]>([]);
   const [bufferNuevas, setBufferNuevas] = useState<TematicaTemp[]>([]);
@@ -36,6 +38,26 @@ export function ThematicsManagerModal({ open, onOpenChange, eventoId, onSave }: 
       setBufferNuevas([]);
     }
   }, [open, eventoId]);
+
+  const getAssignedSubevento = (tematicaId: string): SubEvento | null => {
+    const subeventos = db.subEventos.getByEvento(eventoId);
+    return subeventos.find(se => se.tematicaIds?.includes(tematicaId)) || null;
+  };
+
+  const tematicasConEstado = useMemo(() => {
+    return tematicasExistentes.map(t => {
+      const assignedSubevento = getAssignedSubevento(t.id);
+      return {
+        ...t,
+        isAssigned: !!assignedSubevento,
+        assignedTo: assignedSubevento?.nombre || null,
+      };
+    });
+  }, [tematicasExistentes, eventoId]);
+
+  const availableTematicas = useMemo(() => {
+    return tematicasConEstado.filter(t => !t.isAssigned || t.id === subeventoId);
+  }, [tematicasConEstado, subeventoId]);
 
   const handleAgregarALista = () => {
     if (!nuevaTematica.nombre.trim()) return;
@@ -69,7 +91,14 @@ export function ThematicsManagerModal({ open, onOpenChange, eventoId, onSave }: 
     setBufferNuevas(prev => prev.filter(t => t.id !== id));
   };
 
-  const handleEliminarExistente = async (tematica: NomencladorEvento) => {
+  const handleEliminarExistente = async (tematica: NomencladorEvento & { isAssigned?: boolean; assignedTo?: string | null }) => {
+    if (tematica.isAssigned && tematica.assignedTo) {
+      success({ 
+        title: 'No se puede eliminar', 
+        description: `La temática "${tematica.nombre}" está asignada al subevento "${tematica.assignedTo}". Desasigne primero la temática para eliminarla.` 
+      });
+      return;
+    }
     db.nomencladoresEvento.delete(tematica.id);
     setTematicasExistentes(prev => prev.filter(t => t.id !== tematica.id));
     success({ title: '¡Eliminada!', description: `Temática "${tematica.nombre}" eliminada` });
@@ -121,17 +150,17 @@ export function ThematicsManagerModal({ open, onOpenChange, eventoId, onSave }: 
                 <h3 className="font-semibold flex items-center gap-2">
                   <Globe className="w-4 h-4" />
                   Temáticas Existentes
-                  <Badge variant="secondary">{tematicasExistentes.length}</Badge>
+                  <Badge variant="secondary">{tematicasConEstado.length}</Badge>
                 </h3>
               </div>
               <ScrollArea className="flex-1">
                 <div className="p-4 space-y-2">
-                  {tematicasExistentes.length === 0 ? (
+                  {tematicasConEstado.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-4">
                       No hay temáticas configuradas
                     </p>
                   ) : (
-                    tematicasExistentes.map(t => (
+                    tematicasConEstado.map(t => (
                       <div key={t.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                         <div>
                           <p className="font-medium">{t.nombre}</p>
@@ -143,13 +172,19 @@ export function ThematicsManagerModal({ open, onOpenChange, eventoId, onSave }: 
                               <Clock className="w-3 h-3 mr-1" />
                               {t.duracion || 30} min
                             </Badge>
+                            {t.isAssigned && (
+                              <Badge variant="destructive" className="text-xs">
+                                Asignada a: {t.assignedTo}
+                              </Badge>
+                            )}
                           </div>
                         </div>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => handleEliminarExistente(t)}
-                          className="text-destructive hover:text-destructive"
+                          className={t.isAssigned ? 'opacity-50 cursor-not-allowed' : 'text-destructive hover:text-destructive'}
+                          disabled={t.isAssigned}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -262,7 +297,5 @@ export function ThematicsManagerModal({ open, onOpenChange, eventoId, onSave }: 
     </Dialog>
   );
 }
-
-import { Card } from '@/components/ui/card';
 
 export default ThematicsManagerModal;

@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
-import { db, Event, MacroEvent, EventSession, FormField, SessionAttendance } from '@/lib/database';
+import { db, Event, MacroEvent, EventSession, FormField, SessionAttendance, SubEvento } from '@/lib/database';
 import { normalizeText, isDuplicate } from '@/lib/utils';
 import {
   Plus, Calendar, Users, FileText, Pencil, Trash2, Settings2, Mail, Image, Palette,
@@ -28,6 +28,7 @@ import { JuryAssignment } from '@/components/JuryAssignment';
 import { CertificateManager } from '@/components/CertificateManager';
 import { CredentialsManager } from '@/components/CredentialsManager';
 import EventContentEditor from '@/components/EventContentEditor';
+import { SubEventoFormModal } from '@/components/SubEventos/SubEventoFormModal';
 import { toast } from 'sonner';
 import { ConfirmationDialog, SuccessDialog } from '@/components/ui/ConfirmationDialog';
 
@@ -61,10 +62,13 @@ export default function Events() {
   const [macroEvents, setMacroEvents] = useState<MacroEvent[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [sessions, setSessions] = useState<EventSession[]>([]);
+  const [subEventos, setSubEventos] = useState<SubEvento[]>([]);
 
   // Dialogs
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [isSubeventoModalOpen, setIsSubeventoModalOpen] = useState(false);
+  const [editingSubeventoId, setEditingSubeventoId] = useState<string | null>(null);
   const [isSessionDialogOpen, setIsSessionDialogOpen] = useState(false);
   const [editingSession, setEditingSession] = useState<EventSession | null>(null);
 
@@ -135,6 +139,7 @@ export default function Events() {
     setMacroEvents(allMacros);
     setEvents(allEvents);
     setSessions(db.eventSessions.getAll());
+    setSubEventos(db.subEventos.getAll());
     setIsLoading(false);
   };
 
@@ -655,6 +660,22 @@ export default function Events() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal Unificado de SubEventos - Componente Reutilizable */}
+      <SubEventoFormModal
+        isOpen={isSubeventoModalOpen}
+        onClose={() => {
+          setIsSubeventoModalOpen(false);
+          setEditingSubeventoId(null);
+        }}
+        onSuccess={() => {
+          loadAll();
+          setIsSubeventoModalOpen(false);
+          setEditingSubeventoId(null);
+        }}
+        evento={selectedMacro}
+        subeventoId={editingSubeventoId}
+      />
     </>
   );
 
@@ -996,33 +1017,37 @@ export default function Events() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle>Sub Eventos</CardTitle>
-                  <Button variant="hero" size="sm" onClick={() => openCreateEvent(selectedMacro.id)}>
+                  <Button variant="hero" size="sm" onClick={() => { setEditingSubeventoId(null); setIsSubeventoModalOpen(true); }}>
                     <Plus className="h-4 w-4 mr-1" />Nuevo Sub Evento
                   </Button>
                 </CardHeader>
                 <CardContent>
-                  {macroEvts.length === 0 ? (
+                  {subEventos.filter(se => se.eventoId === selectedMacro.id).length === 0 ? (
                     <p className="text-center py-8 text-muted-foreground">No hay Sub Eventos</p>
                   ) : (
                     <Table>
                       <TableHeader>
                         <TableRow>
                           <TableHead>Nombre</TableHead>
-                          <TableHead>Sesiones</TableHead>
+                          <TableHead>Tipo</TableHead>
+                          <TableHead>Temáticas</TableHead>
                           <TableHead>Estado</TableHead>
                           <TableHead>Acciones</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {macroEvts.map(event => (
-                          <TableRow key={event.id}>
-                            <TableCell className="font-medium">{event.name}</TableCell>
-                            <TableCell className="text-center">{getSessionCount(event.id)}</TableCell>
-                            <TableCell><Switch checked={event.isActive} onCheckedChange={() => toggleEventStatus(event)} /></TableCell>
+                        {subEventos.filter(se => se.eventoId === selectedMacro.id).map(sub => (
+                          <TableRow key={sub.id}>
+                            <TableCell className="font-medium">{sub.nombre}</TableCell>
+                            <TableCell><Badge variant="outline">{sub.tipo}</Badge></TableCell>
+                            <TableCell>{sub.tematicaIds?.length || 0}</TableCell>
+                            <TableCell><Switch checked={sub.isActive} onCheckedChange={() => {
+                              db.subEventos.update(sub.id, { isActive: !sub.isActive });
+                              setSubEventos(db.subEventos.getAll());
+                            }} /></TableCell>
                             <TableCell>
                               <div className="flex gap-1">
-                                <Button variant="ghost" size="icon" onClick={() => openEventDetail(event)}><Eye className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" onClick={() => openEditEvent(event)}><Pencil className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" onClick={() => { setEditingSubeventoId(sub.id); setIsSubeventoModalOpen(true); }}><Pencil className="h-4 w-4" /></Button>
                               </div>
                             </TableCell>
                           </TableRow>

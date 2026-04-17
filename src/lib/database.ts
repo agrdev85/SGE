@@ -304,9 +304,10 @@ export interface SubEvento {
   id: string;
   eventoId: string; // FK a MacroEvent/Evento
   nombre: string;
+  nombreEn?: string;
   tipo: 'SIMPOSIO' | 'CURSO' | 'WORKSHOP' | 'PONENCIA';
   descripcion: string;
-  tematicaId?: string;
+  tematicaIds: string[]; // Array de IDs de temáticas - una temática solo puede estar en un subevento
   salonId?: string;
   fecha?: string;
   horaInicio?: string;
