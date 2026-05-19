@@ -19,6 +19,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  userName?: string;
   passwordHash?: string;
   role: UserRole;
   country: string;
@@ -812,25 +813,6 @@ class Database {
     this.setCollection('rutasTransporte', []);
     this.setCollection('nomencladoresEvento', []);
     this.setCollection('wizardProgress', []);
-
-    // Ensure all demo users exist (in case of stale localStorage)
-    const users = this.getCollection<User>('users');
-    const requiredUsers = [
-      { id: 'superadmin1', email: 'superadmin@example.com', name: 'SuperAdmin', role: 'SUPERADMIN' as UserRole, affiliation: 'Sistema' },
-      { id: 'admin_rec1', email: 'admin@havanatur.cu', name: 'Admin Havanatur', role: 'ADMIN_RECEPTIVO' as UserRole, affiliation: 'Havanatur', receptivoId: 'nr1' },
-      { id: 'admin_emp1', email: 'admin@havanatur-varadero.cu', name: 'Admin Havanatur Varadero', role: 'ADMIN_EMPRESA' as UserRole, affiliation: 'Havanatur Sucursal Varadero', receptivoId: 'nr1', empresaId: 'ne1' },
-      { id: 'coord_hotel1', email: 'coordinador@meliavaradero.cu', name: 'Coord. Meliá Varadero', role: 'COORDINADOR_HOTEL' as UserRole, affiliation: 'Meliá Internacional', hotelId: 'nh1' },
-      { id: 'lector_rec1', email: 'lector@cubatur.cu', name: 'Lector Cubatur', role: 'LECTOR_RECEPTIVO' as UserRole, affiliation: 'Cubatur', receptivoId: 'nr2' },
-      { id: 'lector_emp1', email: 'lector@cubatur-events.cu', name: 'Lector Cubatur Events', role: 'LECTOR_EMPRESA' as UserRole, affiliation: 'Cubatur Events', receptivoId: 'nr2', empresaId: 'ne3' },
-    ];
-    let changed = false;
-    for (const req of requiredUsers) {
-      if (!users.some(u => u.email === req.email)) {
-        users.push({ ...req, passwordHash: 'demo', country: 'Cuba', createdAt: '2024-01-01', isActive: true });
-        changed = true;
-      }
-    }
-    if (changed) this.setCollection('users', users);
   }
 
   private seedData() {

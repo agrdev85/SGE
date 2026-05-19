@@ -422,14 +422,14 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
                     </div>
 
                     <div className="text-center space-y-2">
-                      <h2 className="text-xl font-semibold text-foreground tracking-tight">
+                      <AlertDialogPrimitive.Title className="text-xl font-semibold text-foreground tracking-tight">
                         {isConfirmation ? (opts.title || '¿Está seguro?') : (successOpts.title || 'Operación exitosa')}
-                      </h2>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
+                      </AlertDialogPrimitive.Title>
+                      <AlertDialogPrimitive.Description className="text-sm text-muted-foreground leading-relaxed">
                         {isConfirmation 
                           ? (opts.description || 'Esta acción no se puede deshacer.')
                           : (successOpts.description || '')}
-                      </p>
+                      </AlertDialogPrimitive.Description>
                       {isConfirmation && opts.itemName && (
                         <p className="font-medium text-foreground pt-1">{opts.itemName}</p>
                       )}

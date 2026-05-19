@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { db, User, UserRole } from '@/lib/database';
 import { toast } from 'sonner';
+
+const USE_API = import.meta.env.VITE_USE_API === 'true';
 
 interface AuthContextType {
   user: User | null;
@@ -42,52 +44,92 @@ const roleLabels: Record<UserRole, string> = {
 
 export { roleLabels };
 
+const loadUserFromApi = async (): Promise<User | null> => {
+  try {
+    const { getAccessToken } = await import('@/lib/api-client');
+    const token = getAccessToken();
+    if (!token) return null;
+
+    const { authApi } = await import('@/services/auth.service');
+    const user = await authApi.getCurrentUser();
+    return user;
+  } catch {
+    localStorage.removeItem('auth_token');
+    return null;
+  }
+};
+
+const loadUserFromLocalDb = (token: string): User | null => {
+  try {
+    const { userId } = JSON.parse(atob(token));
+    return db.users.getById(userId) || null;
+  } catch {
+    localStorage.removeItem('auth_token');
+    return null;
+  }
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [originalUser, setOriginalUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      try {
-        const { userId } = JSON.parse(atob(token));
-        const found = db.users.getById(userId);
-        if (found) setUser(found);
-        else localStorage.removeItem('auth_token');
-      } catch {
-        localStorage.removeItem('auth_token');
-      }
-    }
-    setIsLoading(false);
+    (async () => {
+      const token = localStorage.getItem('auth_token');
+      if (!token) { setIsLoading(false); return; }
+      const u = USE_API ? await loadUserFromApi() : loadUserFromLocalDb(token);
+      if (u) setUser(u);
+      setIsLoading(false);
+    })();
   }, []);
 
   useEffect(() => {
-    const handleAuthRefresh = () => {
+    const handleAuthRefresh = async () => {
       const token = localStorage.getItem('auth_token');
-      if (token) {
-        try {
-          const { userId } = JSON.parse(atob(token));
-          const found = db.users.getById(userId);
-          if (found) setUser(found);
-        } catch { /* ignore */ }
-      }
+      if (!token) return;
+      const u = USE_API ? await loadUserFromApi() : loadUserFromLocalDb(token);
+      if (u) setUser(u);
     };
+
+    const handleAuthExpired = () => {
+      localStorage.removeItem('auth_token');
+      setUser(null);
+      setOriginalUser(null);
+      toast.error('Sesión expirada. Inicia sesión nuevamente.');
+    };
+
     window.addEventListener('sge-auth-refresh', handleAuthRefresh);
-    return () => window.removeEventListener('sge-auth-refresh', handleAuthRefresh);
+    window.addEventListener('sge-auth-expired', handleAuthExpired);
+    return () => {
+      window.removeEventListener('sge-auth-refresh', handleAuthRefresh);
+      window.removeEventListener('sge-auth-expired', handleAuthExpired);
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      await new Promise(r => setTimeout(r, 300));
-      const found = db.users.getByEmail(email);
-      if (!found) throw new Error('Usuario no encontrado');
-      if (!found.isActive) throw new Error('Usuario desactivado');
-      const token = btoa(JSON.stringify({ userId: found.id, role: found.role }));
-      localStorage.setItem('auth_token', token);
-      setUser(found);
-      toast.success(`¡Bienvenido, ${found.name}!`);
+      if (USE_API) {
+        const { loginApi } = await import('@/lib/api-client');
+        const { authApi } = await import('@/services/auth.service');
+        await loginApi(email, password);
+        const userData = await authApi.getCurrentUser();
+        if (!userData) {
+          throw new Error('No se pudo obtener la información del usuario');
+        }
+        setUser(userData);
+        toast.success(`¡Bienvenido, ${userData.name}!`);
+      } else {
+        await new Promise(r => setTimeout(r, 300));
+        const found = db.users.getByEmail(email);
+        if (!found) throw new Error('Usuario no encontrado');
+        if (!found.isActive) throw new Error('Usuario desactivado');
+        const token = btoa(JSON.stringify({ userId: found.id, role: found.role }));
+        localStorage.setItem('auth_token', token);
+        setUser(found);
+        toast.success(`¡Bienvenido, ${found.name}!`);
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Error al iniciar sesión');
       throw error;
@@ -99,13 +141,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (data: Omit<User, 'id' | 'createdAt' | 'isActive'>) => {
     setIsLoading(true);
     try {
-      await new Promise(r => setTimeout(r, 300));
-      if (db.users.getByEmail(data.email)) throw new Error('El email ya está registrado');
-      const newUser = db.users.create({ ...data, isActive: true });
-      const token = btoa(JSON.stringify({ userId: newUser.id, role: newUser.role }));
-      localStorage.setItem('auth_token', token);
-      setUser(newUser);
-      toast.success('¡Cuenta creada exitosamente!');
+      if (USE_API) {
+        const { authApi } = await import('@/services/auth.service');
+        const userData = await authApi.createUser({
+          FirstName: data.name,
+          LastName: '',
+          Email: data.email,
+          UserName: data.email,
+          IsActive: true,
+          EmailConfirmed: false,
+          UserGuid: crypto.randomUUID?.() || '',
+        });
+        setUser(userData);
+        toast.success('¡Cuenta creada exitosamente!');
+      } else {
+        await new Promise(r => setTimeout(r, 300));
+        if (db.users.getByEmail(data.email)) throw new Error('El email ya está registrado');
+        const newUser = db.users.create({ ...data, isActive: true });
+        const token = btoa(JSON.stringify({ userId: newUser.id, role: newUser.role }));
+        localStorage.setItem('auth_token', token);
+        setUser(newUser);
+        toast.success('¡Cuenta creada exitosamente!');
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Error al registrarse');
       throw error;
@@ -116,6 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('refresh_token');
     setUser(null);
     setOriginalUser(null);
     toast.success('Sesión cerrada');
@@ -125,7 +183,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user || user.role !== 'SUPERADMIN') return;
     const target = db.users.getById(userId);
     if (!target) { toast.error('Usuario no encontrado'); return; }
-    // Log audit
     db.auditLog.create({
       userId: user.id,
       action: 'IMPERSONATE',

@@ -33,10 +33,18 @@ src/
 │   └── ...
 ├── contexts/            # React contexts (AuthContext, EventContext)
 ├── hooks/               # Custom hooks
-├── lib/                 # Core libraries (database.ts, utils.ts)
+├── lib/                 # Core libraries (database.ts, utils.ts, api-client.ts)
+├── services/            # API service modules (HTTP calls to .NET backend)
+├── adapters/            # Data adapters (bridge between db and api)
 ├── pages/               # Page components
 └── types/               # TypeScript types
 ```
+
+### Dual Data Mode (API + localStorage)
+The app supports two modes controlled by `VITE_USE_API` env var:
+
+- **`VITE_USE_API=false`** (default) — localStorage mode via `database.ts`
+- **`VITE_USE_API=true`** — Real backend mode via axios HTTP calls
 
 ### Database Pattern (localStorage)
 - `src/lib/database.ts` - Central database using localStorage with prefix `sge_`
@@ -44,11 +52,29 @@ src/
 - CRUD operations: `.getAll()`, `.getById(id)`, `.create(data)`, `.update(id, data)`, `.delete(id)`
 - Broadcast changes: `broadcastDataChange(collection)` dispatches `sge-data-change` event
 
+### API Layer (Backend mode)
+- **`src/lib/api-client.ts`** — Axios HTTP client with:
+  - Bearer token injection from localStorage `auth_token`
+  - Automatic 401 → refresh token flow
+  - `sge-auth-expired` event dispatch on auth failure
+- **`src/services/`** — Service modules mapping backend endpoints:
+  - `auth.service.ts` — Login (`POST /api/Account/Login`), CRUD users/roles
+  - `eventos.service.ts` — Eventos, hoteles, salones, temáticas, tipos (all CRUD)
+  - `application.service.ts` — Settings, shortcuts, menu
+  - `configuration.service.ts` — Languages, emails, templates
+  - `security.service.ts` — Resources, resource groups, localization
+  - `system.service.ts` — Scheduled tasks, logs
+  - `reportes.service.ts` — Report endpoints
+- **`src/adapters/data-adapter.ts`** — Async adapter that wraps both `db.*` and API calls under the same interface. When `VITE_USE_API=false`, wraps `db.*` in `Promise.resolve()`. When `VITE_USE_API=true`, makes real HTTP calls.
+
 ### Authentication
 - `AuthContext` provides user state, roles, and auth methods
-- Token stored in localStorage: `auth_token`
+- Token stored in localStorage: `auth_token` (contains JWT `access_token` in API mode)
+- `refresh_token` stored for auto-refresh (API mode only)
 - Roles: USER, REVIEWER, COMMITTEE, SUPERADMIN, ADMIN_RECEPTIVO, ADMIN_EMPRESA, COORDINADOR_HOTEL, LECTOR_RECEPTIVO, LECTOR_EMPRESA
 - Refresh user state: dispatch `sge-auth-refresh` event
+- Expired session: dispatch `sge-auth-expired` event (API mode)
+- Login flow (API mode): `POST /api/Account/Login` with `grant_type=password`
 
 ### Dialog System
 - `DialogProvider` wraps the app for confirmation dialogs
@@ -213,3 +239,5 @@ npx vitest run src/hooks/__tests__/useAuth.test.tsx
 4. **Auth refresh** - After user updates, dispatch `sge-auth-refresh` event
 5. **TypeScript strictness** - `noImplicitAny: false`, `strictNullChecks: false` - partial types acceptable
 6. **Imports** - Always use path aliases (`@/components/...`, `@/lib/...`)
+7. **Prefer `adapter` over `db`** - For new code, use `import { adapter } from '@/adapters/data-adapter'` which works in both modes (API + localStorage). It provides the same `.getAll()`, `.getById()`, `.create()`, `.update()`, `.delete()` interface but all methods return Promises.
+8. **Env vars** - `VITE_USE_API=true/false`, `VITE_API_URL`, `VITE_API_CLIENT_ID`

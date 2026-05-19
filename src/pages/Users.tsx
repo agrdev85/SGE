@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,8 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { db, User, UserRole, Event } from '@/lib/database';
-import { normalizeText, isDuplicate } from '@/lib/utils';
+import { adapter } from '@/adapters/data-adapter';
+import type { User, UserRole, Event, NomReceptivo, NomEmpresa, NomHotel } from '@/lib/database';
 import { useAuth } from '@/contexts/AuthContext';
 import { Search, Users as UsersIcon, UserCheck, ClipboardCheck, Shield, Plus, Pencil, Trash2, FileDown, Award, IdCard, Building2, Hotel, Eye, Handshake, BookOpen } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ImageUploader } from '@/components/ImageUploader';
 import { toast } from 'sonner';
-import { 
+import {
   CertificateConfig,
   defaultCertificateConfig,
   generateAndSaveCertificateFromElements,
@@ -26,7 +26,6 @@ import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 
-// Complete role config for all 10 roles
 const roleConfig: Record<UserRole, { label: string; color: string; icon: React.ElementType }> = {
   USER: { label: 'Participante', color: 'bg-primary/10 text-primary', icon: UsersIcon },
   REVIEWER: { label: 'Revisor', color: 'bg-info/10 text-info', icon: ClipboardCheck },
@@ -41,7 +40,6 @@ const roleConfig: Record<UserRole, { label: string; color: string; icon: React.E
 
 const countries = ['Cuba', 'México', 'Argentina', 'España', 'Colombia', 'Chile', 'Perú', 'Venezuela', 'Brasil', 'Estados Unidos'];
 
-// Roles that current user can assign based on their own role
 function getAssignableRoles(currentUserRole: UserRole): UserRole[] {
   switch (currentUserRole) {
     case 'SUPERADMIN':
@@ -63,51 +61,67 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
 async function generateQRDataUrl(data: string): Promise<string> {
   try {
     return await QRCode.toDataURL(data, { width: 100, margin: 1 });
-  } catch {
-    return '';
-  }
+  } catch { return ''; }
 }
 
 export default function Users() {
-  const { user: currentUser, isSuperAdmin, isAdmin } = useAuth();
+  const { user: currentUser, isSuperAdmin } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<{
-    open: boolean;
-    userId: string;
-    userName: string;
-  }>({ open: false, userId: '', userName: '' });
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; userId: string; userName: string }>({ open: false, userId: '', userName: '' });
   const [formData, setFormData] = useState({
     name: '', email: '', role: 'USER' as UserRole, country: '', affiliation: '', avatar: '', isActive: true,
     idDocument: '', phone: '', affiliationType: '', economicSector: '', participationType: '', scientificLevel: '', educationalLevel: '', gender: 'M', password: '', confirmPassword: '',
     receptivoId: '', empresaId: '', hotelId: '',
   });
+  const [receptivos, setReceptivos] = useState<NomReceptivo[]>([]);
+  const [empresas, setEmpresas] = useState<NomEmpresa[]>([]);
+  const [hoteles, setHoteles] = useState<NomHotel[]>([]);
+  const [activeEvents, setActiveEvents] = useState<Event[]>([]);
 
-  useEffect(() => { loadUsers(); }, []);
-
-  const loadUsers = () => {
+  const loadUsers = useCallback(async () => {
     if (!currentUser) return;
-    let allUsers = db.users.getAll();
+    try {
+      let allUsers = await adapter.users.getAll();
+      switch (currentUser.role) {
+        case 'SUPERADMIN':
+          break;
+        case 'ADMIN_RECEPTIVO':
+          allUsers = allUsers.filter(u =>
+            u.receptivoId === currentUser.receptivoId || u.id === currentUser.id
+          );
+          break;
+        default:
+          allUsers = [];
+      }
+      setUsers(allUsers);
+    } catch { toast.error('Error al cargar usuarios'); }
+  }, [currentUser]);
 
-    // Apply data isolation per permission matrix
-    switch (currentUser.role) {
-      case 'SUPERADMIN':
-        break; // See all
-      case 'ADMIN_RECEPTIVO':
-        // Only see users of their receptivo (R02, R03, R04, R05, R06 roles)
-        allUsers = allUsers.filter(u =>
-          u.receptivoId === currentUser.receptivoId ||
-          u.id === currentUser.id
-        );
-        break;
-      default:
-        allUsers = []; // Others can't manage users
-    }
-    setUsers(allUsers);
-  };
+  const loadNomencladores = useCallback(async () => {
+    try {
+      const [r, e, h] = await Promise.all([
+        adapter.nomencladores.receptivos.getAll(),
+        adapter.nomencladores.empresas.getAll(),
+        adapter.nomencladores.hoteles.getAll(),
+      ]);
+      setReceptivos(r);
+      setEmpresas(e);
+      setHoteles(h);
+    } catch { /* silent fail for nomencladores */ }
+  }, []);
+
+  useEffect(() => { loadUsers(); loadNomencladores(); }, []);
+
+  useEffect(() => {
+    (async () => {
+      const allEvents = await adapter.events.getAll();
+      setActiveEvents(allEvents.filter(e => e.isActive));
+    })();
+  }, []);
 
   const filteredUsers = users.filter(u => {
     const q = searchQuery.toLowerCase();
@@ -116,20 +130,16 @@ export default function Users() {
     return matchesSearch && matchesTab;
   });
 
-  // Compute counts for visible roles
-  const roleTabs = Object.entries(roleConfig).filter(([role]) => {
-    return users.some(u => u.role === role);
-  });
-
+  const roleTabs = Object.entries(roleConfig).filter(([role]) => users.some(u => u.role === role));
   const counts: Record<string, number> = { all: users.length };
-  Object.keys(roleConfig).forEach(role => {
-    counts[role] = users.filter(u => u.role === role).length;
-  });
+  Object.keys(roleConfig).forEach(role => { counts[role] = users.filter(u => u.role === role).length; });
 
   const openCreateDialog = () => {
     setEditingUser(null);
-    setFormData({ name: '', email: '', role: 'USER', country: '', affiliation: '', avatar: '', isActive: true,
-      idDocument: '', phone: '', affiliationType: '', economicSector: '', participationType: '', scientificLevel: '', educationalLevel: '', gender: 'M', password: '', confirmPassword: '',
+    setFormData({
+      name: '', email: '', role: 'USER', country: '', affiliation: '', avatar: '', isActive: true,
+      idDocument: '', phone: '', affiliationType: '', economicSector: '', participationType: '',
+      scientificLevel: '', educationalLevel: '', gender: 'M', password: '', confirmPassword: '',
       receptivoId: currentUser?.receptivoId || '', empresaId: currentUser?.empresaId || '', hotelId: '',
     });
     setIsDialogOpen(true);
@@ -137,27 +147,25 @@ export default function Users() {
 
   const openEditDialog = (user: User) => {
     setEditingUser(user);
-    setFormData({ name: user.name, email: user.email, role: user.role, country: user.country, affiliation: user.affiliation, avatar: user.avatar || '', isActive: user.isActive,
-      idDocument: (user as any).idDocument || '', phone: user.phone || '', affiliationType: (user as any).affiliationType || '', economicSector: (user as any).economicSector || '', participationType: (user as any).participationType || '', scientificLevel: (user as any).scientificLevel || '', educationalLevel: (user as any).educationalLevel || '', gender: (user as any).gender || 'M', password: '', confirmPassword: '',
+    setFormData({
+      name: user.name, email: user.email, role: user.role, country: user.country, affiliation: user.affiliation,
+      avatar: user.avatar || '', isActive: user.isActive,
+      idDocument: (user as any).idDocument || '', phone: user.phone || '',
+      affiliationType: (user as any).affiliationType || '', economicSector: (user as any).economicSector || '',
+      participationType: (user as any).participationType || '', scientificLevel: (user as any).scientificLevel || '',
+      educationalLevel: (user as any).educationalLevel || '', gender: (user as any).gender || 'M',
+      password: '', confirmPassword: '',
       receptivoId: user.receptivoId || '', empresaId: user.empresaId || '', hotelId: user.hotelId || '',
     });
     setIsDialogOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.name || !formData.email) { toast.error('Nombre y email son requeridos'); return; }
     if (!editingUser) {
       if (!formData.password) { toast.error('Contraseña requerida para nuevo usuario'); return; }
       if (formData.password !== formData.confirmPassword) { toast.error('Las contraseñas no coinciden'); return; }
     }
-
-    const emailNormalizado = normalizeText(formData.email);
-    const emailDuplicado = users.find(u => normalizeText(u.email) === emailNormalizado && (!editingUser || u.id !== editingUser.id));
-    if (emailDuplicado) {
-      toast.error(`Ya existe un usuario con el email "${emailDuplicado.email}"`);
-      return;
-    }
-
     try {
       const saveData: any = { ...formData };
       delete saveData.password;
@@ -167,42 +175,35 @@ export default function Users() {
       if (saveData.hotelId === '') delete saveData.hotelId;
 
       if (editingUser) {
-        db.users.update(editingUser.id, saveData);
+        await adapter.users.update(editingUser.id, saveData);
         toast.success('Usuario actualizado');
       } else {
-        db.users.create({ ...saveData, passwordHash: formData.password });
+        await adapter.users.create(saveData);
         toast.success('Usuario creado');
       }
       setIsDialogOpen(false);
-      loadUsers();
+      await loadUsers();
     } catch { toast.error('Error al guardar'); }
   };
 
   const handleDelete = (user: User) => {
-    setDeleteConfirm({
-      open: true,
-      userId: user.id,
-      userName: user.name,
-    });
+    setDeleteConfirm({ open: true, userId: user.id, userName: user.name });
   };
 
-  const confirmDeleteUser = () => {
-    db.users.delete(deleteConfirm.userId);
-    toast.success('Usuario eliminado');
-    loadUsers();
+  const confirmDeleteUser = async () => {
+    try {
+      await adapter.users.delete(deleteConfirm.userId);
+      toast.success('Usuario eliminado');
+      await loadUsers();
+    } catch { toast.error('Error al eliminar'); }
     setDeleteConfirm(prev => ({ ...prev, open: false }));
   };
 
   const assignableRoles = currentUser ? getAssignableRoles(currentUser.role) : [];
-  const receptivos = db.nomReceptivos.getAll();
-  const empresas = db.nomEmpresas.getAll();
-  const hoteles = db.nomHoteles.getAll();
 
-  // Certificate/credential generation helpers (kept from original)
   const getEventConfigAndElements = (): { event: Event; config: CertificateConfig; elements: CanvasElement[] } | null => {
-    const events = db.events.getActive();
-    if (events.length === 0) { toast.error('No hay eventos activos'); return null; }
-    const event = events[0];
+    if (activeEvents.length === 0) { toast.error('No hay eventos activos'); return null; }
+    const event = activeEvents[0];
     const savedConfig = localStorage.getItem(`certificate_config_v2_${event.id}`);
     const savedElements = localStorage.getItem(`certificate_elements_v2_${event.id}`);
     const config = savedConfig ? JSON.parse(savedConfig) : { ...defaultCertificateConfig, primaryColor: event.primaryColor, secondaryColor: event.secondaryColor };
@@ -215,7 +216,12 @@ export default function Users() {
     if (!result) return;
     try {
       await generateAndSaveCertificateFromElements(
-        { participantName: user.name, eventName: result.event.name, eventDate: `${formatDate(result.event.startDate)} al ${formatDate(result.event.endDate)}`, certificateType: 'participation', primaryColor: result.config.primaryColor, secondaryColor: result.config.secondaryColor },
+        {
+          participantName: user.name, eventName: result.event.name,
+          eventDate: `${formatDate(result.event.startDate)} al ${formatDate(result.event.endDate)}`,
+          certificateType: 'participation', primaryColor: result.config.primaryColor,
+          secondaryColor: result.config.secondaryColor,
+        },
         result.elements, result.config
       );
       toast.success('Certificado generado');
@@ -243,14 +249,12 @@ export default function Users() {
           </div>
           <div className="flex gap-2 flex-wrap">
             <Button variant="outline" onClick={handleExportAllCertificates}>
-              <FileDown className="h-4 w-4 mr-1" />
-              Exportar Certificados
+              <FileDown className="h-4 w-4 mr-1" />Exportar Certificados
             </Button>
             <Button variant="hero" onClick={openCreateDialog}><Plus className="h-4 w-4" />Nuevo Usuario</Button>
           </div>
         </div>
 
-        {/* Stats cards - show only roles that have users */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {roleTabs.slice(0, 5).map(([role, config]) => (
             <Card key={role} className="bg-gradient-to-br from-muted/50 to-transparent">
@@ -301,8 +305,8 @@ export default function Users() {
                 <tbody>
                   {filteredUsers.map(user => {
                     const config = roleConfig[user.role] || roleConfig.USER;
-                    const receptivo = user.receptivoId ? db.nomReceptivos.getById(user.receptivoId) : null;
-                    const empresa = user.empresaId ? db.nomEmpresas.getById(user.empresaId) : null;
+                    const receptivo = user.receptivoId ? receptivos.find(r => r.id === user.receptivoId) : null;
+                    const empresa = user.empresaId ? empresas.find(e => e.id === user.empresaId) : null;
                     return (
                       <tr key={user.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
                         <td className="py-4 px-4">
@@ -381,7 +385,6 @@ export default function Users() {
                 </div>
               </div>
 
-              {/* Association fields - shown based on role */}
               {['ADMIN_RECEPTIVO', 'LECTOR_RECEPTIVO', 'ADMIN_EMPRESA', 'LECTOR_EMPRESA', 'COORDINADOR_HOTEL'].includes(formData.role) && (
                 <div className="grid grid-cols-2 gap-4 p-3 bg-muted/50 rounded-lg">
                   <h4 className="col-span-2 text-sm font-semibold text-muted-foreground">Asociación Organizacional</h4>
@@ -391,8 +394,8 @@ export default function Users() {
                       <Select value={formData.receptivoId} onValueChange={(v) => setFormData({ ...formData, receptivoId: v })}>
                         <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                         <SelectContent>
-                          {receptivos.filter(r => r.activo).map(r => (
-                            <SelectItem key={r.id} value={r.id}>{r.nombre} ({r.siglas})</SelectItem>
+                          {receptivos.filter(r => (r as any).activo !== false).map(r => (
+                            <SelectItem key={r.id} value={r.id}>{r.nombre} ({(r as any).siglas})</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -404,7 +407,7 @@ export default function Users() {
                       <Select value={formData.empresaId} onValueChange={(v) => setFormData({ ...formData, empresaId: v })}>
                         <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                         <SelectContent>
-                          {empresas.filter(e => e.activo && (!formData.receptivoId || e.receptivoId === formData.receptivoId)).map(e => (
+                          {empresas.filter(e => (e as any).activo !== false && (!formData.receptivoId || (e as any).receptivoId === formData.receptivoId)).map(e => (
                             <SelectItem key={e.id} value={e.id}>{e.nombre}</SelectItem>
                           ))}
                         </SelectContent>
@@ -417,7 +420,7 @@ export default function Users() {
                       <Select value={formData.hotelId} onValueChange={(v) => setFormData({ ...formData, hotelId: v })}>
                         <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                         <SelectContent>
-                          {hoteles.filter(h => h.activo).map(h => (
+                          {hoteles.filter(h => (h as any).activo !== false).map(h => (
                             <SelectItem key={h.id} value={h.id}>{h.nombre}</SelectItem>
                           ))}
                         </SelectContent>

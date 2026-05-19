@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,8 +11,10 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
-import { db, Event, MacroEvent, EventSession, FormField, SessionAttendance, SubEvento } from '@/lib/database';
-import { normalizeText, isDuplicate } from '@/lib/utils';
+import { adapter } from '@/adapters/data-adapter';
+import type { Event, MacroEvent, EventSession, FormField, SessionAttendance, SubEvento, Salon, NomHotel, ActividadSocial, EventoHotel, EventoSalon } from '@/lib/database';
+import { db } from '@/lib/database';
+import { normalizeText } from '@/lib/utils';
 import {
   Plus, Calendar, Users, FileText, Pencil, Trash2, Settings2, Mail, Image, Palette,
   ArrowLeft, Wand2, Award, IdCard, Search, Eye, Clock, CheckSquare, Layers, CalendarDays, ChevronRight, Filter,
@@ -34,7 +36,6 @@ import { ConfirmationDialog, SuccessDialog } from '@/components/ui/ConfirmationD
 
 type ViewMode = 'list' | 'macro-detail' | 'event-detail' | 'form-builder' | 'email-templates' | 'jury-assignment' | 'certificates' | 'credentials' | 'attendance';
 
-// Default registration fields for macro event config
 const defaultRegistrationFields = [
   { id: 'name', label: 'Nombre(s) y Apellidos', type: 'text', required: true, enabled: true },
   { id: 'idDocument', label: 'Carné de Identidad / Pasaporte', type: 'text', required: true, enabled: true },
@@ -52,19 +53,24 @@ const defaultRegistrationFields = [
 ];
 
 export default function Events() {
-  const { user: currentUser, isSuperAdmin, isAdmin, isAdminReceptivo, isAdminEmpresa, isCoordinadorHotel, isLector } = useAuth();
+  const { user: currentUser, isSuperAdmin, isAdminReceptivo, isAdminEmpresa, isCoordinadorHotel, isLector } = useAuth();
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedMacro, setSelectedMacro] = useState<MacroEvent | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
-  // Data
   const [macroEvents, setMacroEvents] = useState<MacroEvent[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [sessions, setSessions] = useState<EventSession[]>([]);
   const [subEventos, setSubEventos] = useState<SubEvento[]>([]);
 
-  // Dialogs
+  // Reference data preloaded
+  const [nomHoteles, setNomHoteles] = useState<NomHotel[]>([]);
+  const [salones, setSalones] = useState<Salon[]>([]);
+  const [eventoHoteles, setEventoHoteles] = useState<EventoHotel[]>([]);
+  const [eventoSalones, setEventoSalones] = useState<EventoSalon[]>([]);
+  const [actividadesSociales, setActividadesSociales] = useState<ActividadSocial[]>([]);
+
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [isSubeventoModalOpen, setIsSubeventoModalOpen] = useState(false);
@@ -73,11 +79,9 @@ export default function Events() {
   const [isSessionDialogOpen, setIsSessionDialogOpen] = useState(false);
   const [editingSession, setEditingSession] = useState<EventSession | null>(null);
 
-  // Search
   const [macroSearch, setMacroSearch] = useState('');
   const [eventSearch, setEventSearch] = useState('');
 
-  // Forms
   const [eventForm, setEventForm] = useState({
     name: '', nameEn: '', description: '', macroEventId: '',
     bannerImageUrl: '', backgroundImageUrl: '',
@@ -86,7 +90,6 @@ export default function Events() {
   const [activeEventTab, setActiveEventTab] = useState('basic');
   const [activeDetailTab, setActiveDetailTab] = useState('info');
 
-  // Asignacion dialogs
   const [isHotelDialogOpen, setIsHotelDialogOpen] = useState(false);
   const [isSalonDialogOpen, setIsSalonDialogOpen] = useState(false);
   const [isActividadDialogOpen, setIsActividadDialogOpen] = useState(false);
@@ -97,47 +100,35 @@ export default function Events() {
     incluyeTransporte: false, incluyeComida: false, capacidad: 0, lugar: '',
   });
 
-  // Sub-views
   const [formBuilderType] = useState<'event'>('event');
   const [attendanceSession, setAttendanceSession] = useState<EventSession | null>(null);
   const [attendanceData, setAttendanceData] = useState<SessionAttendance[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => { 
-    loadAll(); 
-    
-    const handleDataChange = () => {
-      loadAll();
-    };
-    
-    window.addEventListener('sge-data-change', handleDataChange);
-    return () => window.removeEventListener('sge-data-change', handleDataChange);
-  }, [currentUser?.id]);
+  const loadRefData = useCallback(() => {
+    setNomHoteles(db.nomHoteles.getAll());
+    setSalones(db.salones.getAll());
+    setEventoHoteles(db.eventoHoteles.getAll());
+    setEventoSalones(db.eventoSalones.getAll());
+    setActividadesSociales(db.actividadesSociales.getAll());
+  }, []);
 
-const loadAll = () => {
+  const loadAll = useCallback(async () => {
     try {
-      let allMacros = db.macroEvents.getAll();
-      let allEvents = db.events.getAll();
+      let allMacros = await adapter.macroEvents.getAll();
+      let allEvents = await adapter.events.getAll();
 
-      // Data isolation per permission matrix
       if (currentUser) {
         if (currentUser.role === 'ADMIN_RECEPTIVO' || currentUser.role === 'LECTOR_RECEPTIVO') {
           allMacros = allMacros.filter(me => !(me as any).receptivoId || (me as any).receptivoId === currentUser.receptivoId);
-          allEvents = allEvents.filter(e => {
-            const macro = allMacros.find(m => m.id === e.macroEventId);
-            return !!macro;
-          });
+          allEvents = allEvents.filter(e => allMacros.some(m => m.id === e.macroEventId));
         } else if (currentUser.role === 'ADMIN_EMPRESA' || currentUser.role === 'LECTOR_EMPRESA') {
           allMacros = allMacros.filter(me => !(me as any).empresaId || (me as any).empresaId === currentUser.empresaId);
-          allEvents = allEvents.filter(e => {
-            const macro = allMacros.find(m => m.id === e.macroEventId);
-            return !!macro;
-          });
+          allEvents = allEvents.filter(e => allMacros.some(m => m.id === e.macroEventId));
         }
       }
-      // COORDINADOR_HOTEL ve todos los eventos (como SuperAdmin)
-      
+
       setMacroEvents(allMacros);
       setEvents(allEvents);
       setSessions(db.eventSessions.getAll());
@@ -147,13 +138,20 @@ const loadAll = () => {
       console.error('Error loading data:', e);
       setIsLoading(false);
     }
-  };
+  }, [currentUser]);
+
+  useEffect(() => {
+    loadAll();
+    loadRefData();
+    const handleDataChange = () => { loadAll(); loadRefData(); };
+    window.addEventListener('sge-data-change', handleDataChange);
+    return () => window.removeEventListener('sge-data-change', handleDataChange);
+  }, [currentUser?.id, loadAll, loadRefData]);
 
   const canEdit = !isLector && !isCoordinadorHotel;
-  const canCreate = isSuperAdmin || isAdmin || isAdminReceptivo || isAdminEmpresa || isCoordinadorHotel;
+  const canCreate = isSuperAdmin || isAdminReceptivo || isAdminEmpresa || isCoordinadorHotel;
 
   // ===== MACRO EVENT HANDLERS =====
-
   const handleDeleteMacro = async (me: MacroEvent) => {
     if (me.isActive) { toast.error('Solo se puede eliminar eventos inactivos'); return; }
     const confirmed = await ConfirmationDialog.show({
@@ -164,20 +162,19 @@ const loadAll = () => {
       cancelText: 'Cancelar',
     });
     if (confirmed) {
-      db.macroEvents.delete(me.id);
-      await SuccessDialog.show({
-        title: '¡Eliminado!',
-        description: 'Evento eliminado correctamente.',
-        autoClose: 2000,
-      });
+      await adapter.macroEvents.delete(me.id);
+      await SuccessDialog.show({ title: '¡Eliminado!', description: 'Evento eliminado correctamente.', autoClose: 2000 });
       loadAll();
     }
   };
 
-  const toggleMacroStatus = (me: MacroEvent) => {
-    db.macroEvents.update(me.id, { isActive: !me.isActive });
+  const toggleMacroStatus = async (me: MacroEvent) => {
+    await adapter.macroEvents.update(me.id, { isActive: !me.isActive });
     loadAll();
-    if (selectedMacro?.id === me.id) setSelectedMacro(db.macroEvents.getById(me.id) || null);
+    if (selectedMacro?.id === me.id) {
+      const updated = await adapter.macroEvents.getById(me.id);
+      if (updated) setSelectedMacro(updated);
+    }
   };
 
   const openMacroDetail = (me: MacroEvent) => { setSelectedMacro(me); setViewMode('macro-detail'); };
@@ -201,14 +198,14 @@ const loadAll = () => {
     setIsEventDialogOpen(true);
   };
 
-  const handleSaveEvent = () => {
+  const handleSaveEvent = async () => {
     if (!eventForm.name || !eventForm.macroEventId) {
       toast.error('Completa los campos obligatorios'); return;
     }
-    const macro = db.macroEvents.getById(eventForm.macroEventId);
+    const macro = await adapter.macroEvents.getById(eventForm.macroEventId);
     if (!macro) { toast.error('Evento no encontrado'); return; }
 
-    const eventosDelMacro = db.events.getAll().filter(e => e.macroEventId === eventForm.macroEventId);
+    const eventosDelMacro = (await adapter.events.getAll()).filter(e => e.macroEventId === eventForm.macroEventId);
     const duplicado = eventosDelMacro.find(e => normalizeText(e.name) === normalizeText(eventForm.name) && (!editingEvent || e.id !== editingEvent.id));
     if (duplicado) {
       toast.error(`Ya existe un Sub Evento con el nombre "${duplicado.name}" en este evento`);
@@ -222,15 +219,18 @@ const loadAll = () => {
         backgroundColor: (macro as any).backgroundColor || '#f0f9ff',
       };
       if (editingEvent) {
-        db.events.update(editingEvent.id, { ...eventForm, ...colors, startDate: macro.startDate, endDate: macro.endDate });
+        await adapter.events.update(editingEvent.id, { ...eventForm, ...colors, startDate: macro.startDate, endDate: macro.endDate });
         toast.success('Sub Evento actualizado');
       } else {
-        db.events.create({ ...eventForm, ...colors, isActive: false, createdBy: '4', startDate: macro.startDate, endDate: macro.endDate } as any);
+        await adapter.events.create({ ...eventForm, ...colors, isActive: false, createdBy: '4', startDate: macro.startDate, endDate: macro.endDate } as any);
         toast.success('Sub Evento creado (estado: Inactivo)');
       }
       setIsEventDialogOpen(false);
       loadAll();
-      if (editingEvent && selectedEvent?.id === editingEvent.id) setSelectedEvent(db.events.getById(editingEvent.id) || null);
+      if (editingEvent && selectedEvent?.id === editingEvent.id) {
+        const updated = await adapter.events.getById(editingEvent.id);
+        if (updated) setSelectedEvent(updated);
+      }
     } catch (e: any) { toast.error(e.message || 'Error al guardar'); }
   };
 
@@ -244,22 +244,18 @@ const loadAll = () => {
       cancelText: 'Cancelar',
     });
     if (confirmed) {
-      db.events.delete(event.id);
-      await SuccessDialog.show({
-        title: '¡Eliminado!',
-        description: 'Sub Evento eliminado correctamente.',
-        autoClose: 2000,
-      });
+      await adapter.events.delete(event.id);
+      await SuccessDialog.show({ title: '¡Eliminado!', description: 'Sub Evento eliminado correctamente.', autoClose: 2000 });
       loadAll();
     }
   };
 
-  const toggleEventStatus = (event: Event) => {
+  const toggleEventStatus = async (event: Event) => {
     if (!event.isActive) {
       const sesCount = db.eventSessions.getByEvent(event.id).length;
       if (sesCount === 0) { toast.error('El evento necesita al menos una sesión para activarse'); return; }
     }
-    db.events.update(event.id, { isActive: !event.isActive });
+    await adapter.events.update(event.id, { isActive: !event.isActive });
     loadAll();
   };
 
@@ -272,7 +268,6 @@ const loadAll = () => {
     setIsSessionDialogOpen(true);
   };
 
-  // Update sessionForm when editingSession changes
   useEffect(() => {
     if (editingSession) {
       setSessionForm({
@@ -301,7 +296,7 @@ const loadAll = () => {
     }
     try {
       const sessionData = {
-        eventId: selectedMacro.id,
+        eventId: selectedMacro!.id,
         subEventoId: selectedSubEventoForSessions.id,
         date: sessionForm.date,
         startTime: sessionForm.startTime,
@@ -326,10 +321,7 @@ const loadAll = () => {
     });
     if (confirmed) {
       db.eventSessions.delete(sessionId);
-      await SuccessDialog.show({
-        title: '¡Eliminado!',
-        autoClose: 1500,
-      });
+      await SuccessDialog.show({ title: '¡Eliminado!', autoClose: 1500 });
       loadAll();
     }
   };
@@ -360,30 +352,36 @@ const loadAll = () => {
     setAttendanceData(db.sessionAttendance.getBySession(attendanceSession.id));
   };
 
-  // ===== SUB-VIEW HANDLERS (now at macro level) =====
+  // ===== SUB-VIEW HANDLERS =====
   const openFormBuilder = () => { setViewMode('form-builder'); };
   const openEmailTemplates = () => { setViewMode('email-templates'); };
   const openJuryAssignment = () => { setViewMode('jury-assignment'); };
   const openCertificates = () => { setViewMode('certificates'); };
   const openCredentials = () => { setViewMode('credentials'); };
 
-  const handleSaveFormFields = (fields: FormField[]) => {
+  const handleSaveFormFields = async (fields: FormField[]) => {
     if (selectedMacro) {
       const macroEventsList = events.filter(e => e.macroEventId === selectedMacro.id);
       macroEventsList.forEach(ev => db.events.updateFormFields(ev.id, fields));
-      db.macroEvents.update(selectedMacro.id, { registrationFields: fields } as any);
+      await adapter.macroEvents.update(selectedMacro.id, { registrationFields: fields } as any);
       loadAll();
     }
   };
 
-  const goBackToMacroDetail = () => {
-    if (selectedMacro) setSelectedMacro(db.macroEvents.getById(selectedMacro.id) || selectedMacro);
+  const goBackToMacroDetail = async () => {
+    if (selectedMacro) {
+      const refreshed = await adapter.macroEvents.getById(selectedMacro.id);
+      if (refreshed) setSelectedMacro(refreshed);
+    }
     setSelectedEvent(null);
     setViewMode('macro-detail');
   };
 
-  const goBackToEventDetail = () => {
-    if (selectedEvent) setSelectedEvent(db.events.getById(selectedEvent.id) || selectedEvent);
+  const goBackToEventDetail = async () => {
+    if (selectedEvent) {
+      const refreshed = await adapter.events.getById(selectedEvent.id);
+      if (refreshed) setSelectedEvent(refreshed);
+    }
     setViewMode('event-detail');
     setAttendanceSession(null);
   };
@@ -398,7 +396,7 @@ const loadAll = () => {
   // ===== HELPERS =====
   const getSimpleEventCount = (macroId: string) => events.filter(e => e.macroEventId === macroId).length;
   const getSessionCount = (eventId: string) => sessions.filter(s => s.eventId === eventId).length;
-  const getEventName = (eventId: string) => db.events.getById(eventId)?.name || 'Sin evento';
+  const getEventName = (eventId: string) => events.find(e => e.id === eventId)?.name || 'Sin evento';
 
   const filteredMacros = macroEvents.filter(me => {
     const q = macroSearch.toLowerCase();
@@ -415,7 +413,6 @@ const loadAll = () => {
     );
   };
 
-  // ===== BREADCRUMB =====
   const Breadcrumb = () => (
     <div className="flex items-center gap-1 text-sm text-muted-foreground mb-4">
       <button onClick={goBackToList} className="hover:text-foreground transition-colors">Eventos</button>
@@ -441,14 +438,12 @@ const loadAll = () => {
   // ===== ALL DIALOGS =====
   const renderDialogs = () => (
     <>
-      {/* SIMPLE EVENT DIALOG */}
       <Dialog open={isEventDialogOpen} onOpenChange={setIsEventDialogOpen}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingEvent ? 'Editar Sub Evento' : 'Crear Sub Evento'}</DialogTitle>
             <DialogDescription>Sub Evento o componente del Evento principal</DialogDescription>
           </DialogHeader>
-          {/* Solo información básica y descripción simple */}
           <div className="space-y-4 mt-4">
             <div className="space-y-2"><Label>Nombre en Español *</Label><Input value={eventForm.name} onChange={e => setEventForm({ ...eventForm, name: e.target.value })} /></div>
             <div className="space-y-2"><Label>Nombre en Inglés</Label><Input value={eventForm.nameEn} onChange={e => setEventForm({ ...eventForm, nameEn: e.target.value })} /></div>
@@ -475,7 +470,6 @@ const loadAll = () => {
         </DialogContent>
       </Dialog>
 
-{/* SESSION DIALOG */}
       <Dialog open={isSessionDialogOpen} onOpenChange={setIsSessionDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -490,13 +484,10 @@ const loadAll = () => {
               <Select value={sessionForm.salonId} onValueChange={v => setSessionForm({ ...sessionForm, salonId: v })}>
                 <SelectTrigger><SelectValue placeholder="Seleccionar salón" /></SelectTrigger>
                 <SelectContent>
-                  {(
-                    (() => {
-                      const eventoSalones = selectedMacro ? db.eventoSalones.getByEvento(selectedMacro.id) : [];
-                      const salonIds = eventoSalones.map(es => es.salonId);
-                      return db.salones.getAll().filter(s => salonIds.includes(s.id));
-                    })()
-                  ).map(salon => (
+                  {(() => {
+                    const esIds = eventoSalones.filter(es => es.eventoId === selectedMacro?.id).map(es => es.salonId);
+                    return salones.filter(s => esIds.includes(s.id));
+                  })().map(salon => (
                     <SelectItem key={salon.id} value={salon.id}>{salon.nombre}</SelectItem>
                   ))}
                 </SelectContent>
@@ -519,7 +510,6 @@ const loadAll = () => {
         </DialogContent>
       </Dialog>
 
-      {/* ASIGNAR HOTEL DIALOG */}
       <Dialog open={isHotelDialogOpen} onOpenChange={setIsHotelDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -527,11 +517,11 @@ const loadAll = () => {
             <DialogDescription>Seleccione un hotel para este evento</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 max-h-[400px] overflow-y-auto">
-            {db.nomHoteles.getAll().filter(h => h.activo && !db.eventoHoteles.getByEvento(selectedMacro?.id || '').some(eh => eh.hotelId === h.id)).length === 0 ? (
+            {nomHoteles.filter(h => (h as any).activo !== false && !eventoHoteles.some(eh => eh.hotelId === h.id && eh.eventoId === (selectedMacro?.id || ''))).length === 0 ? (
               <p className="text-center py-8 text-muted-foreground">Todos los hoteles disponibles ya están asignados</p>
             ) : (
-              db.nomHoteles.getAll().filter(h => h.activo && !db.eventoHoteles.getByEvento(selectedMacro?.id || '').some(eh => eh.hotelId === h.id)).map(hotel => (
-                <div key={hotel.id} className="p-4 border rounded-lg cursor-pointer hover:bg-muted/50" onClick={() => {
+              nomHoteles.filter(h => (h as any).activo !== false && !eventoHoteles.some(eh => eh.hotelId === h.id && eh.eventoId === (selectedMacro?.id || ''))).map(hotel => (
+                <div key={hotel.id} className="p-4 border rounded-lg cursor-pointer hover:bg-muted/50" onClick={async () => {
                   db.eventoHoteles.create({
                     eventoId: selectedMacro?.id || '',
                     hotelId: hotel.id,
@@ -539,15 +529,17 @@ const loadAll = () => {
                     fechaCheckout: selectedMacro?.endDate || '',
                   });
                   setIsHotelDialogOpen(false);
-                  setSelectedMacro(db.macroEvents.getById(selectedMacro?.id || ''));
+                  const refreshed = await adapter.macroEvents.getById(selectedMacro?.id || '');
+                  if (refreshed) setSelectedMacro(refreshed);
                   toast.success('Hotel asignado');
+                  loadRefData();
                 }}>
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-medium">{hotel.nombre}</p>
-                      <p className="text-sm text-muted-foreground">{hotel.ciudad}</p>
+                      <p className="text-sm text-muted-foreground">{(hotel as any).ciudad}</p>
                     </div>
-                    <Badge>{hotel.categoriaEstrellas} estrellas</Badge>
+                    <Badge>{(hotel as any).categoriaEstrellas} estrellas</Badge>
                   </div>
                 </div>
               ))
@@ -559,7 +551,6 @@ const loadAll = () => {
         </DialogContent>
       </Dialog>
 
-      {/* ASIGNAR SALON DIALOG */}
       <Dialog open={isSalonDialogOpen} onOpenChange={setIsSalonDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -567,28 +558,26 @@ const loadAll = () => {
             <DialogDescription>Seleccione salones disponibles</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 max-h-[400px] overflow-y-auto">
-            {db.salones.getAll().filter(s => s.estado === 'ACTIVO' && !db.eventoSalones.getByEvento(selectedMacro?.id || '').some(es => es.salonId === s.id)).length === 0 ? (
+            {salones.filter(s => (s as any).estado === 'ACTIVO' && !eventoSalones.some(es => es.salonId === s.id && es.eventoId === (selectedMacro?.id || ''))).length === 0 ? (
               <p className="text-center py-8 text-muted-foreground">Todos los salones disponibles ya están asignados</p>
             ) : (
-              db.salones.getAll().filter(s => s.estado === 'ACTIVO' && !db.eventoSalones.getByEvento(selectedMacro?.id || '').some(es => es.salonId === s.id)).map(salon => {
-                const hotel = db.nomHoteles.getById(salon.hotelId);
+              salones.filter(s => (s as any).estado === 'ACTIVO' && !eventoSalones.some(es => es.salonId === s.id && es.eventoId === (selectedMacro?.id || ''))).map(salon => {
+                const hotel = nomHoteles.find(h => h.id === (salon as any).hotelId);
                 return (
-                  <div key={salon.id} className="p-4 border rounded-lg cursor-pointer hover:bg-muted/50" onClick={() => {
-                    db.eventoSalones.create({
-                      eventoId: selectedMacro?.id || '',
-                      salonId: salon.id,
-                      disponible: true,
-                    });
+                  <div key={salon.id} className="p-4 border rounded-lg cursor-pointer hover:bg-muted/50" onClick={async () => {
+                    db.eventoSalones.create({ eventoId: selectedMacro?.id || '', salonId: salon.id, disponible: true });
                     setIsSalonDialogOpen(false);
-                    setSelectedMacro(db.macroEvents.getById(selectedMacro?.id || ''));
+                    const refreshed = await adapter.macroEvents.getById(selectedMacro?.id || '');
+                    if (refreshed) setSelectedMacro(refreshed);
                     toast.success('Salón asignado');
+                    loadRefData();
                   }}>
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="font-medium">{salon.nombre}</p>
-                        <p className="text-sm text-muted-foreground">{hotel?.nombre || 'Sin hotel'} - {salon.ubicacion}</p>
+                        <p className="text-sm text-muted-foreground">{hotel?.nombre || 'Sin hotel'} - {(salon as any).ubicacion}</p>
                       </div>
-                      <Badge variant="outline">Cap: {salon.capacidadMaxima}</Badge>
+                      <Badge variant="outline">Cap: {(salon as any).capacidadMaxima}</Badge>
                     </div>
                   </div>
                 );
@@ -601,7 +590,6 @@ const loadAll = () => {
         </DialogContent>
       </Dialog>
 
-      {/* NUEVA ACTIVIDAD SOCIAL DIALOG */}
       <Dialog open={isActividadDialogOpen} onOpenChange={setIsActividadDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -609,54 +597,20 @@ const loadAll = () => {
             <DialogDescription>Configure los datos de la actividad</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Nombre *</Label>
-              <Input value={actividadForm.nombre} onChange={e => setActividadForm({ ...actividadForm, nombre: e.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <Label>Descripción</Label>
-              <Textarea value={actividadForm.descripcion} onChange={e => setActividadForm({ ...actividadForm, descripcion: e.target.value })} />
-            </div>
+            <div className="space-y-2"><Label>Nombre *</Label><Input value={actividadForm.nombre} onChange={e => setActividadForm({ ...actividadForm, nombre: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Descripción</Label><Textarea value={actividadForm.descripcion} onChange={e => setActividadForm({ ...actividadForm, descripcion: e.target.value })} /></div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Fecha</Label>
-                <Input type="date" value={actividadForm.fecha} onChange={e => setActividadForm({ ...actividadForm, fecha: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Lugar</Label>
-                <Input value={actividadForm.lugar} onChange={e => setActividadForm({ ...actividadForm, lugar: e.target.value })} />
-              </div>
+              <div className="space-y-2"><Label>Fecha</Label><Input type="date" value={actividadForm.fecha} onChange={e => setActividadForm({ ...actividadForm, fecha: e.target.value })} /></div>
+              <div className="space-y-2"><Label>Lugar</Label><Input value={actividadForm.lugar} onChange={e => setActividadForm({ ...actividadForm, lugar: e.target.value })} /></div>
             </div>
             <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>Precio</Label>
-                <Input type="number" value={actividadForm.precio} onChange={e => setActividadForm({ ...actividadForm, precio: parseFloat(e.target.value) || 0 })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Moneda</Label>
-                <Select value={actividadForm.moneda} onValueChange={v => setActividadForm({ ...actividadForm, moneda: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="USD">USD</SelectItem>
-                    <SelectItem value="EUR">EUR</SelectItem>
-                    <SelectItem value="CUP">CUP</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Capacidad</Label>
-                <Input type="number" value={actividadForm.capacidad} onChange={e => setActividadForm({ ...actividadForm, capacidad: parseInt(e.target.value) || 0 })} />
-              </div>
+              <div className="space-y-2"><Label>Precio</Label><Input type="number" value={actividadForm.precio} onChange={e => setActividadForm({ ...actividadForm, precio: parseFloat(e.target.value) || 0 })} /></div>
+              <div className="space-y-2"><Label>Moneda</Label><Select value={actividadForm.moneda} onValueChange={v => setActividadForm({ ...actividadForm, moneda: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="EUR">EUR</SelectItem><SelectItem value="CUP">CUP</SelectItem></SelectContent></Select></div>
+              <div className="space-y-2"><Label>Capacidad</Label><Input type="number" value={actividadForm.capacidad} onChange={e => setActividadForm({ ...actividadForm, capacidad: parseInt(e.target.value) || 0 })} /></div>
             </div>
             <div className="flex gap-6">
-              <div className="flex items-center gap-2">
-                <Checkbox id="transporte" checked={actividadForm.incluyeTransporte} onCheckedChange={v => setActividadForm({ ...actividadForm, incluyeTransporte: !!v })} />
-                <Label htmlFor="transporte">Incluye Transporte</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox id="comida" checked={actividadForm.incluyeComida} onCheckedChange={v => setActividadForm({ ...actividadForm, incluyeComida: !!v })} />
-                <Label htmlFor="comida">Incluye Comida</Label>
-              </div>
+              <div className="flex items-center gap-2"><Checkbox id="transporte" checked={actividadForm.incluyeTransporte} onCheckedChange={v => setActividadForm({ ...actividadForm, incluyeTransporte: !!v })} /><Label htmlFor="transporte">Incluye Transporte</Label></div>
+              <div className="flex items-center gap-2"><Checkbox id="comida" checked={actividadForm.incluyeComida} onCheckedChange={v => setActividadForm({ ...actividadForm, incluyeComida: !!v })} /><Label htmlFor="comida">Incluye Comida</Label></div>
             </div>
           </div>
           <DialogFooter>
@@ -668,47 +622,26 @@ const loadAll = () => {
                 nombre: actividadForm.nombre,
                 descripcion: actividadForm.descripcion,
                 fecha: actividadForm.fecha,
-                horaInicio: '',
-                horaFin: '',
-                puntoEncuentro: actividadForm.lugar,
-                horaEncuentro: '',
-                destino: '',
-                direccionExacta: '',
-                esGratuita: false,
-                costo: {
-                  CUP: 0,
-                  moneda: actividadForm.precio,
-                  monedaSeleccionada: actividadForm.moneda as 'CUP' | 'USD' | 'EUR',
-                },
-                cupoMaximo: actividadForm.capacidad,
-                cupoMinimo: 0,
-                fechaLimiteReserva: '',
-                requiereTransporte: actividadForm.incluyeTransporte,
-                guiaIncluido: false,
-                imagenes: [],
-                estado: 'ACTIVO',
+                horaInicio: '', horaFin: '', puntoEncuentro: actividadForm.lugar,
+                horaEncuentro: '', destino: '', direccionExacta: '', esGratuita: false,
+                costo: { CUP: 0, moneda: actividadForm.precio, monedaSeleccionada: actividadForm.moneda as 'CUP' | 'USD' | 'EUR' },
+                cupoMaximo: actividadForm.capacidad, cupoMinimo: 0, fechaLimiteReserva: '',
+                requiereTransporte: actividadForm.incluyeTransporte, guiaIncluido: false, imagenes: [], estado: 'ACTIVO',
               });
               setIsActividadDialogOpen(false);
               setActividadForm({ nombre: '', descripcion: '', fecha: '', precio: 0, moneda: 'USD', incluyeTransporte: false, incluyeComida: false, capacidad: 0, lugar: '' });
-              setSelectedMacro(db.macroEvents.getById(selectedMacro?.id || ''));
+              loadRefData();
+              loadAll();
               toast.success('Actividad creada');
             }}>Crear</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Modal Unificado de SubEventos - Componente Reutilizable */}
       <SubEventoFormModal
         isOpen={isSubeventoModalOpen}
-        onClose={() => {
-          setIsSubeventoModalOpen(false);
-          setEditingSubeventoId(null);
-        }}
-        onSuccess={() => {
-          loadAll();
-          setIsSubeventoModalOpen(false);
-          setEditingSubeventoId(null);
-        }}
+        onClose={() => { setIsSubeventoModalOpen(false); setEditingSubeventoId(null); }}
+        onSuccess={() => { loadAll(); loadRefData(); setIsSubeventoModalOpen(false); setEditingSubeventoId(null); }}
         evento={selectedMacro}
         subeventoId={editingSubeventoId}
       />
@@ -729,15 +662,11 @@ const loadAll = () => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-display font-bold">Registro de Asistencia</h1>
-              <p className="text-muted-foreground">
-                {getEventName(attendanceSession.eventId)} — {attendanceSession.date} ({attendanceSession.startTime} - {attendanceSession.endTime})
-              </p>
+              <p className="text-muted-foreground">{getEventName(attendanceSession.eventId)} — {attendanceSession.date} ({attendanceSession.startTime} - {attendanceSession.endTime})</p>
             </div>
             <Button variant="outline" onClick={goBackToEventDetail}><ArrowLeft className="h-4 w-4 mr-2" />Volver</Button>
           </div>
-          {!isEditable && (
-            <div className="bg-muted rounded-lg p-3 text-sm text-muted-foreground">⚠️ Solo lectura — el evento o la sesión están inactivos.</div>
-          )}
+          {!isEditable && <div className="bg-muted rounded-lg p-3 text-sm text-muted-foreground">⚠️ Solo lectura — el evento o la sesión están inactivos.</div>}
           <Card>
             <Table>
               <TableHeader>
@@ -747,12 +676,8 @@ const loadAll = () => {
                   <TableHead>Afiliación</TableHead>
                   <TableHead className="text-center">
                     <div className="flex items-center justify-center gap-2">
-                      <Checkbox
-                        checked={allAttended}
-                        ref={(el) => { if (el) (el as any).indeterminate = someAttended && !allAttended; }}
-                        onCheckedChange={(checked) => { if (isEditable) toggleAllAttendance(users, !!checked); }}
-                        disabled={!isEditable}
-                      />
+                      <Checkbox checked={allAttended} ref={(el) => { if (el) (el as any).indeterminate = someAttended && !allAttended; }}
+                        onCheckedChange={(checked) => { if (isEditable) toggleAllAttendance(users, !!checked); }} disabled={!isEditable} />
                       <span>Asistió</span>
                     </div>
                   </TableHead>
@@ -781,9 +706,8 @@ const loadAll = () => {
     );
   }
 
-  // ===== FORM BUILDER VIEW (at macro level) =====
+  // ===== FORM BUILDER VIEW =====
   if (viewMode === 'form-builder' && selectedMacro) {
-    // Use first event of macro as reference for the form builder
     const macroEvts = events.filter(e => e.macroEventId === selectedMacro.id);
     const refEvent = macroEvts[0];
     return (
@@ -791,24 +715,15 @@ const loadAll = () => {
         <div className="space-y-4">
           <Breadcrumb />
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-display font-bold">Formulario de Inscripción</h1>
-              <p className="text-muted-foreground">{selectedMacro.name}</p>
-            </div>
+            <div><h1 className="text-2xl font-display font-bold">Formulario de Inscripción</h1><p className="text-muted-foreground">{selectedMacro.name}</p></div>
             <Button variant="outline" onClick={goBackToMacroDetail}><ArrowLeft className="h-4 w-4 mr-2" />Volver</Button>
           </div>
           {refEvent ? (
-            <FormBuilderWithPreview
-              eventId={refEvent.id}
-              event={refEvent}
+            <FormBuilderWithPreview eventId={refEvent.id} event={refEvent}
               initialFields={(selectedMacro as any)?.registrationFields || refEvent.formFields || defaultRegistrationFields}
-              onSave={handleSaveFormFields}
-              type="event"
-            />
+              onSave={handleSaveFormFields} type="event" />
           ) : (
-            <Card className="p-8 text-center text-muted-foreground">
-              Crea al menos un Sub Evento en este Evento para configurar el formulario de inscripción.
-            </Card>
+            <Card className="p-8 text-center text-muted-foreground">Crea al menos un Sub Evento en este Evento para configurar el formulario de inscripción.</Card>
           )}
         </div>
         {renderDialogs()}
@@ -884,10 +799,10 @@ const loadAll = () => {
     );
   }
 
-  // ===== EVENT DETAIL VIEW (Sessions inside) =====
+  // ===== EVENT DETAIL VIEW =====
   if (viewMode === 'event-detail' && selectedEvent) {
     const eventSessions = sessions.filter(s => s.eventId === selectedEvent.id);
-    const macro = db.macroEvents.getById(selectedEvent.macroEventId);
+    const macro = macroEvents.find(m => m.id === selectedEvent.macroEventId);
     return (
       <DashboardLayout>
         <div className="space-y-6">
@@ -902,84 +817,57 @@ const loadAll = () => {
               <Button variant="outline" onClick={goBackToMacroDetail}><ArrowLeft className="h-4 w-4 mr-2" />Volver</Button>
             </div>
           </div>
-
-          {/* Description */}
           {selectedEvent.description && (
-            <Card className="p-4">
-              <Label className="text-sm font-semibold mb-2 block">Descripción General</Label>
-              <p className="text-sm text-muted-foreground">{selectedEvent.description.replace(/<[^>]*>/g, '').substring(0, 300)}</p>
-            </Card>
+            <Card className="p-4"><Label className="text-sm font-semibold mb-2 block">Descripción General</Label><p className="text-sm text-muted-foreground">{selectedEvent.description.replace(/<[^>]*>/g, '').substring(0, 300)}</p></Card>
           )}
-
-          {/* Event info summary */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <Card className="p-4 text-center">
-              <p className="text-2xl font-bold">{eventSessions.length}</p>
-              <p className="text-sm text-muted-foreground">Sesiones</p>
-            </Card>
+            <Card className="p-4 text-center"><p className="text-2xl font-bold">{eventSessions.length}</p><p className="text-sm text-muted-foreground">Sesiones</p></Card>
             <Card className="p-4 text-center">
               <div className="flex justify-center">
-                <Switch checked={selectedEvent.isActive} onCheckedChange={() => {
+                <Switch checked={selectedEvent.isActive} onCheckedChange={async () => {
                   toggleEventStatus(selectedEvent);
-                  const refreshed = db.events.getById(selectedEvent.id);
+                  const refreshed = await adapter.events.getById(selectedEvent.id);
                   if (refreshed) setSelectedEvent(refreshed);
                 }} />
               </div>
               <p className="text-sm text-muted-foreground mt-1">{selectedEvent.isActive ? 'Activo' : 'Inactivo'}</p>
             </Card>
-            <Card className="p-4 text-center">
-              <p className="text-2xl font-bold" style={{ color: selectedEvent.primaryColor }}>■</p>
-              <p className="text-sm text-muted-foreground">Color Principal</p>
-            </Card>
+            <Card className="p-4 text-center"><p className="text-2xl font-bold" style={{ color: selectedEvent.primaryColor }}>■</p><p className="text-sm text-muted-foreground">Color Principal</p></Card>
           </div>
-
-{/* Sessions table */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-lg">Sesiones</CardTitle>
-                {selectedEvent && (
-                  <Button variant="hero" size="sm" onClick={() => openCreateSession(selectedEvent.id)}>
-                    <Plus className="h-4 w-4 mr-1" />Nueva Sesión
-                  </Button>
-                )}
-              </CardHeader>
-              <CardContent>
-                {selectedEvent ? (
-                  <div className="space-y-2">
-                    {sessions.filter(s => s.eventId === selectedEvent.id).map(session => (
-                      <div key={session.id} className="flex items-center justify-between p-3 border-b hover:bg-muted/50">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium text-sm">{session.date}</span>
-                            <Clock className="h-4 w-4 text-muted-foreground ml-2" />
-                            <span className="text-sm">{session.startTime} - {session.endTime}</span>
-                          </div>
-                          {session.salonId && (
-                            <p className="text-xs text-muted-foreground ml-6">
-                              Salón: {db.eventoSalones.getById(session.salonId)?.nombre || session.salonId}
-                            </p>
-                          )}
-                        </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-lg">Sesiones</CardTitle>
+              {selectedEvent && <Button variant="hero" size="sm" onClick={() => openCreateSession(selectedEvent.id)}><Plus className="h-4 w-4 mr-1" />Nueva Sesión</Button>}
+            </CardHeader>
+            <CardContent>
+              {selectedEvent ? (
+                <div className="space-y-2">
+                  {sessions.filter(s => s.eventId === selectedEvent.id).map(session => (
+                    <div key={session.id} className="flex items-center justify-between p-3 border-b hover:bg-muted/50">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <Badge variant={session.isActive ? 'default' : 'secondary'} className="text-xs">
-                            {session.isActive ? 'Activa' : 'Inactiva'}
-                          </Badge>
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setEditingSession(session); setIsSessionDialogOpen(true); }}>
-                            <Pencil className="h-3 w-3" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteSession(session.id)}>
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium text-sm">{session.date}</span>
+                          <Clock className="h-4 w-4 text-muted-foreground ml-2" />
+                          <span className="text-sm">{session.startTime} - {session.endTime}</span>
                         </div>
+                        {session.salonId && (
+                          <p className="text-xs text-muted-foreground ml-6">
+                            Salón: {salones.find(s => s.id === session.salonId)?.nombre || session.salonId}
+                          </p>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-center py-8 text-muted-foreground">Seleccione un evento para ver sus sesiones</p>
-                )}
-              </CardContent>
-            </Card>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={session.isActive ? 'default' : 'secondary'} className="text-xs">{session.isActive ? 'Activa' : 'Inactiva'}</Badge>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setEditingSession(session); setIsSessionDialogOpen(true); }}><Pencil className="h-3 w-3" /></Button>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteSession(session.id)}><Trash2 className="h-3 w-3" /></Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="text-center py-8 text-muted-foreground">Seleccione un evento para ver sus sesiones</p>}
+            </CardContent>
+          </Card>
         </div>
         {renderDialogs()}
       </DashboardLayout>
@@ -989,8 +877,6 @@ const loadAll = () => {
   // ===== MACRO DETAIL VIEW =====
   if (viewMode === 'macro-detail' && selectedMacro) {
     const macroEvts = filteredEvents(selectedMacro.id);
-    const refEvent = macroEvts[0];
-    
     return (
       <DashboardLayout>
         <div className="space-y-4">
@@ -1000,9 +886,9 @@ const loadAll = () => {
               <p className="text-muted-foreground">
                 <Badge variant="outline" className="mr-2">{selectedMacro.acronym}</Badge>
                 {new Date(selectedMacro.startDate).toLocaleDateString('es-ES')} — {new Date(selectedMacro.endDate).toLocaleDateString('es-ES')}
-                <Switch className="ml-4 inline-flex" checked={selectedMacro.isActive} onCheckedChange={() => {
+                <Switch className="ml-4 inline-flex" checked={selectedMacro.isActive} onCheckedChange={async () => {
                   toggleMacroStatus(selectedMacro);
-                  const refreshed = db.macroEvents.getById(selectedMacro.id);
+                  const refreshed = await adapter.macroEvents.getById(selectedMacro.id);
                   if (refreshed) setSelectedMacro(refreshed);
                 }} />
                 <span className="ml-2 text-sm">{selectedMacro.isActive ? 'Activo' : 'Inactivo'}</span>
@@ -1021,19 +907,12 @@ const loadAll = () => {
               <TabsTrigger value="herramientas"><Settings2 className="h-4 w-4 mr-1" />Herramientas</TabsTrigger>
             </TabsList>
 
-            {/* TAB: INFO */}
             <TabsContent value="info" className="space-y-4">
               {selectedMacro.description && (
-                <Card className="p-4">
-                  <h3 className="font-medium mb-2">Descripción</h3>
-                  <p className="text-sm text-muted-foreground">{selectedMacro.description}</p>
-                </Card>
+                <Card className="p-4"><h3 className="font-medium mb-2">Descripción</h3><p className="text-sm text-muted-foreground">{selectedMacro.description}</p></Card>
               )}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Card className="p-4 text-center">
-                  <p className="text-3xl font-bold">{subEventos.filter(se => se.eventoId === selectedMacro.id).length}</p>
-                  <p className="text-sm text-muted-foreground">Sub Eventos</p>
-                </Card>
+                <Card className="p-4 text-center"><p className="text-3xl font-bold">{subEventos.filter(se => se.eventoId === selectedMacro.id).length}</p><p className="text-sm text-muted-foreground">Sub Eventos</p></Card>
                 <Card className="p-4 text-center">
                   <p className="text-3xl font-bold">
                     {(() => {
@@ -1043,21 +922,13 @@ const loadAll = () => {
                   </p>
                   <p className="text-sm text-muted-foreground">Sesiones</p>
                 </Card>
-                <Card className="p-4 text-center">
-                  <p className="text-3xl font-bold">{db.actividadesSociales.getByEvento(selectedMacro.id).length}</p>
-                  <p className="text-sm text-muted-foreground">Actividades</p>
-                </Card>
-                <Card className="p-4 text-center">
-                  <p className="text-3xl font-bold">{db.eventoHoteles.getByEvento(selectedMacro.id).length}</p>
-                  <p className="text-sm text-muted-foreground">Hoteles</p>
-                </Card>
+                <Card className="p-4 text-center"><p className="text-3xl font-bold">{actividadesSociales.filter(a => a.eventoId === selectedMacro.id).length}</p><p className="text-sm text-muted-foreground">Actividades</p></Card>
+                <Card className="p-4 text-center"><p className="text-3xl font-bold">{eventoHoteles.filter(eh => eh.eventoId === selectedMacro.id).length}</p><p className="text-sm text-muted-foreground">Hoteles</p></Card>
               </div>
             </TabsContent>
 
-            {/* TAB: SUB EVENTOS */}
             <TabsContent value="subeventos" className="space-y-4">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* Lista de Sub Eventos */}
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between py-3">
                     <CardTitle className="text-base">Sub Eventos</CardTitle>
@@ -1071,24 +942,15 @@ const loadAll = () => {
                     ) : (
                       <div className="max-h-[400px] overflow-y-auto">
                         {subEventos.filter(se => se.eventoId === selectedMacro.id).map(sub => (
-                          <div 
-                            key={sub.id} 
-                            className={`flex items-center justify-between p-3 border-b cursor-pointer hover:bg-muted/50 transition-colors ${
-                              selectedSubEventoForSessions?.id === sub.id ? 'bg-primary/10 border-l-4 border-l-primary' : ''
-                            }`}
-                            onClick={() => setSelectedSubEventoForSessions(sub)}
-                          >
+                          <div key={sub.id} className={`flex items-center justify-between p-3 border-b cursor-pointer hover:bg-muted/50 transition-colors ${selectedSubEventoForSessions?.id === sub.id ? 'bg-primary/10 border-l-4 border-l-primary' : ''}`}
+                            onClick={() => setSelectedSubEventoForSessions(sub)}>
                             <div className="flex-1 min-w-0">
                               <p className="font-medium text-sm truncate">{sub.nombre}</p>
                               <p className="text-xs text-muted-foreground">{sub.tipo} • {sub.tematicaIds?.length || 0} temáticas</p>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Badge variant={sub.isActive ? 'default' : 'secondary'} className="text-xs">
-                                {sub.isActive ? 'Activo' : 'Inactivo'}
-                              </Badge>
-                              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); setEditingSubeventoId(sub.id); setIsSubeventoModalOpen(true); }}>
-                                <Pencil className="h-3 w-3" />
-                              </Button>
+                              <Badge variant={sub.isActive ? 'default' : 'secondary'} className="text-xs">{sub.isActive ? 'Activo' : 'Inactivo'}</Badge>
+                              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); setEditingSubeventoId(sub.id); setIsSubeventoModalOpen(true); }}><Pencil className="h-3 w-3" /></Button>
                             </div>
                           </div>
                         ))}
@@ -1097,17 +959,10 @@ const loadAll = () => {
                   </CardContent>
                 </Card>
 
-                {/* Panel de Sesiones del SubEvento seleccionado */}
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between py-3">
-                    <CardTitle className="text-base">
-                      {selectedSubEventoForSessions ? `Sesiones: ${selectedSubEventoForSessions.nombre}` : 'Sesiones'}
-                    </CardTitle>
-                    {selectedSubEventoForSessions && (
-                      <Button variant="outline" size="sm" onClick={() => { setEditingSession(null); setIsSessionDialogOpen(true); }}>
-                        <Plus className="h-4 w-4 mr-1" />Agregar Sesión
-                      </Button>
-                    )}
+                    <CardTitle className="text-base">{selectedSubEventoForSessions ? `Sesiones: ${selectedSubEventoForSessions.nombre}` : 'Sesiones'}</CardTitle>
+                    {selectedSubEventoForSessions && <Button variant="outline" size="sm" onClick={() => { setEditingSession(null); setIsSessionDialogOpen(true); }}><Plus className="h-4 w-4 mr-1" />Agregar Sesión</Button>}
                   </CardHeader>
                   <CardContent className="p-0">
                     {!selectedSubEventoForSessions ? (
@@ -1115,9 +970,7 @@ const loadAll = () => {
                     ) : sessions.filter(s => s.subEventoId === selectedSubEventoForSessions.id).length === 0 ? (
                       <div className="text-center py-8">
                         <p className="text-muted-foreground text-sm mb-2">No hay sesiones programadas</p>
-                        <Button variant="outline" size="sm" onClick={() => { setEditingSession(null); setIsSessionDialogOpen(true); }}>
-                          <Plus className="h-4 w-4 mr-1" />Crear Primera Sesión
-                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => { setEditingSession(null); setIsSessionDialogOpen(true); }}><Plus className="h-4 w-4 mr-1" />Crear Primera Sesión</Button>
                       </div>
                     ) : (
                       <div className="max-h-[400px] overflow-y-auto">
@@ -1132,20 +985,14 @@ const loadAll = () => {
                               </div>
                               {session.salonId && (
                                 <p className="text-xs text-muted-foreground ml-6">
-                                  Salón: {db.salones.getById(session.salonId)?.nombre || session.salonId}
+                                  Salón: {salones.find(s => s.id === session.salonId)?.nombre || session.salonId}
                                 </p>
                               )}
                             </div>
                             <div className="flex items-center gap-2">
-                              <Badge variant={session.isActive ? 'default' : 'secondary'} className="text-xs">
-                                {session.isActive ? 'Activa' : 'Inactiva'}
-                              </Badge>
-                              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setEditingSession(session); setIsSessionDialogOpen(true); }}>
-                                <Pencil className="h-3 w-3" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteSession(session.id)}>
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
+                              <Badge variant={session.isActive ? 'default' : 'secondary'} className="text-xs">{session.isActive ? 'Activa' : 'Inactiva'}</Badge>
+                              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setEditingSession(session); setIsSessionDialogOpen(true); }}><Pencil className="h-3 w-3" /></Button>
+                              <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteSession(session.id)}><Trash2 className="h-3 w-3" /></Button>
                             </div>
                           </div>
                         ))}
@@ -1156,43 +1003,22 @@ const loadAll = () => {
               </div>
             </TabsContent>
 
-            {/* TAB: HERRAMIENTAS */}
             <TabsContent value="herramientas" className="space-y-4">
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <Card className="p-4 cursor-pointer hover:bg-muted/50 transition-colors" onClick={openFormBuilder}>
-                  <div className="flex flex-col items-center text-center gap-2">
-                    <Settings2 className="h-8 w-8 text-primary" />
-                    <span className="font-medium">Formularios</span>
-                    <span className="text-xs text-muted-foreground">Inscripción</span>
-                  </div>
+                  <div className="flex flex-col items-center text-center gap-2"><Settings2 className="h-8 w-8 text-primary" /><span className="font-medium">Formularios</span><span className="text-xs text-muted-foreground">Inscripción</span></div>
                 </Card>
                 <Card className="p-4 cursor-pointer hover:bg-muted/50 transition-colors" onClick={openEmailTemplates}>
-                  <div className="flex flex-col items-center text-center gap-2">
-                    <Mail className="h-8 w-8 text-primary" />
-                    <span className="font-medium">Emails</span>
-                    <span className="text-xs text-muted-foreground">Plantillas</span>
-                  </div>
+                  <div className="flex flex-col items-center text-center gap-2"><Mail className="h-8 w-8 text-primary" /><span className="font-medium">Emails</span><span className="text-xs text-muted-foreground">Plantillas</span></div>
                 </Card>
                 <Card className="p-4 cursor-pointer hover:bg-muted/50 transition-colors" onClick={openJuryAssignment}>
-                  <div className="flex flex-col items-center text-center gap-2">
-                    <Wand2 className="h-8 w-8 text-primary" />
-                    <span className="font-medium">Jurados</span>
-                    <span className="text-xs text-muted-foreground">Asignación</span>
-                  </div>
+                  <div className="flex flex-col items-center text-center gap-2"><Wand2 className="h-8 w-8 text-primary" /><span className="font-medium">Jurados</span><span className="text-xs text-muted-foreground">Asignación</span></div>
                 </Card>
                 <Card className="p-4 cursor-pointer hover:bg-muted/50 transition-colors" onClick={openCertificates}>
-                  <div className="flex flex-col items-center text-center gap-2">
-                    <Award className="h-8 w-8 text-primary" />
-                    <span className="font-medium">Certificados</span>
-                    <span className="text-xs text-muted-foreground">Gestión</span>
-                  </div>
+                  <div className="flex flex-col items-center text-center gap-2"><Award className="h-8 w-8 text-primary" /><span className="font-medium">Certificados</span><span className="text-xs text-muted-foreground">Gestión</span></div>
                 </Card>
                 <Card className="p-4 cursor-pointer hover:bg-muted/50 transition-colors" onClick={openCredentials}>
-                  <div className="flex flex-col items-center text-center gap-2">
-                    <IdCard className="h-8 w-8 text-primary" />
-                    <span className="font-medium">Credenciales</span>
-                    <span className="text-xs text-muted-foreground">Gestión</span>
-                  </div>
+                  <div className="flex flex-col items-center text-center gap-2"><IdCard className="h-8 w-8 text-primary" /><span className="font-medium">Credenciales</span><span className="text-xs text-muted-foreground">Gestión</span></div>
                 </Card>
               </div>
             </TabsContent>
@@ -1203,7 +1029,7 @@ const loadAll = () => {
     );
   }
 
-  // ===== MAIN LIST VIEW (Macro Events) =====
+  // ===== MAIN LIST VIEW =====
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -1211,7 +1037,6 @@ const loadAll = () => {
           <h1 className="text-3xl font-display font-bold">Gestión de Eventos</h1>
           <p className="text-muted-foreground mt-1">Eventos y Sub Eventos</p>
         </div>
-
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1219,7 +1044,6 @@ const loadAll = () => {
           </div>
           <Button variant="hero" onClick={() => navigate('/events/wizard')}><Plus className="h-4 w-4" />Nuevo Evento</Button>
         </div>
-
         <Card>
           <Table>
             <TableHeader>

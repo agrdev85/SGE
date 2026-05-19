@@ -8,8 +8,8 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { statsApi, abstractsApi, eventsApi, Abstract, Event } from '@/lib/mockApi';
-import { db, MacroEvent } from '@/lib/database';
+import { adapter } from '@/adapters/data-adapter';
+import type { MacroEvent, Abstract, AbstractStatus } from '@/lib/database';
 import { FileText, CheckCircle, Clock, XCircle, Calendar, Plus, ArrowRight, MapPin, Hotel, Ticket, Layers } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -19,20 +19,44 @@ export default function Dashboard() {
   const [stats, setStats] = useState({ totalAbstracts: 0, pendingReview: 0, approved: 0, rejected: 0, events: 0 });
   const [recentAbstracts, setRecentAbstracts] = useState<Abstract[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [subEventsCount, setSubEventsCount] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const loadData = async () => {
       if (!user) return;
       try {
-        const [statsData, abstracts] = await Promise.all([
-          statsApi.getDashboardStats(user.id, user.role),
-          user.role === 'REVIEWER' ? abstractsApi.getPendingReview(user.id) : abstractsApi.getMyAbstracts(user.id),
-        ]);
-        setStats(statsData);
-        setRecentAbstracts(abstracts.slice(0, 5));
+        const allEvents = await adapter.events.getAll();
+        const subCounts: Record<string, number> = {};
+        userEvents.forEach(me => {
+          subCounts[me.id] = allEvents.filter(e => e.macroEventId === me.id).length;
+        });
+        setSubEventsCount(subCounts);
       } finally { setIsLoading(false); }
     };
     loadData();
+  }, [user, userEvents]);
+
+  useEffect(() => {
+    const loadAbstracts = async () => {
+      if (!user) return;
+      try {
+        if (user.role === 'REVIEWER') {
+          const { abstractsApi } = await import('@/lib/mockApi');
+          const abstracts = await abstractsApi.getPendingReview(user.id);
+          setRecentAbstracts(abstracts.slice(0, 5));
+        } else if (user.role === 'USER') {
+          const { abstractsApi } = await import('@/lib/mockApi');
+          const abstracts = await abstractsApi.getMyAbstracts(user.id);
+          setRecentAbstracts(abstracts.slice(0, 5));
+        } else {
+          setRecentAbstracts([]);
+        }
+        const { statsApi } = await import('@/lib/mockApi');
+        const statsData = await statsApi.getDashboardStats(user.id, user.role);
+        setStats(statsData);
+      } finally { setIsLoading(false); }
+    };
+    loadAbstracts();
   }, [user, selectedEvent, eventChangeTrigger]);
 
   const roleGreetings: Record<string, string> = {
@@ -41,13 +65,12 @@ export default function Dashboard() {
     COORDINADOR_HOTEL: t('dashboard.role.coordinadorHotel'), LECTOR_RECEPTIVO: t('dashboard.role.lectorReceptivo'), LECTOR_EMPRESA: t('dashboard.role.lectorEmpresa'),
   };
 
-  // EVENT CARDS VIEW (first visit or "Ver todos mis eventos")
   if (showEventSelector || (isFirstVisit && !selectedEvent)) {
     return (
       <DashboardLayout>
         <div className="space-y-6">
           <div>
-            <h1 className="text-3xl font-display font-bold">👋 {t('dashboard.greeting')} {user?.name?.split(' ')[0]}</h1>
+            <h1 className="text-3xl font-display font-bold">{t('dashboard.greeting')} {user?.name?.split(' ')[0]}</h1>
             <p className="text-muted-foreground mt-1">
               {userEvents.length > 0
                 ? `${t('dashboard.eventsRegistered')} ${userEvents.length} ${userEvents.length > 1 ? t('dashboard.events') : t('dashboard.event')}:`
@@ -57,7 +80,7 @@ export default function Dashboard() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {userEvents.map((me) => {
-              const simpleEvents = db.events.getAll().filter(e => e.macroEventId === me.id);
+              const simpleEventsCount = subEventsCount[me.id] || 0;
               const startDate = me.startDate ? new Date(me.startDate) : null;
               const endDate = me.endDate ? new Date(me.endDate) : null;
               const now = new Date();
@@ -92,7 +115,7 @@ export default function Dashboard() {
                       </div>
                     )}
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1"><Layers className="h-4 w-4" />{simpleEvents.length} eventos</span>
+                      <span className="flex items-center gap-1"><Layers className="h-4 w-4" />{simpleEventsCount} eventos</span>
                     </div>
                     <div className="pt-2">
                       {daysUntil > 0 ? (
@@ -119,7 +142,6 @@ export default function Dashboard() {
   return (
     <DashboardLayout>
       <div className="space-y-8">
-        {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-display font-bold">
@@ -137,16 +159,13 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <StatCard title={t('dashboard.totalAbstracts')} value={stats.totalAbstracts} icon={FileText} variant="primary" />
           <StatCard title={t('dashboard.inProcess')} value={stats.pendingReview} icon={Clock} variant="warning" />
           <StatCard title={t('dashboard.approved')} value={stats.approved} icon={CheckCircle} variant="success" />
         </div>
 
-        {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Recent Abstracts */}
           <Card className="lg:col-span-2">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
@@ -192,7 +211,6 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Event Info Card */}
           <Card>
             <CardHeader>
               <CardTitle className="font-display">{t('dashboard.currentEvent')}</CardTitle>
